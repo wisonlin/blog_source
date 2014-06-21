@@ -1,14 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <feed xmlns="http://www.w3.org/2005/Atom">
 
-  <title><![CDATA[My Octopress Blog]]></title>
+  <title><![CDATA[苹果君的博客]]></title>
   <link href="http://wihing.github.io/atom.xml" rel="self"/>
   <link href="http://wihing.github.io/"/>
-  <updated>2014-06-21T23:46:53+08:00</updated>
+  <updated>2014-06-22T00:10:40+08:00</updated>
   <id>http://wihing.github.io/</id>
   <author>
-    <name><![CDATA[Your Name]]></name>
-    
+    <name><![CDATA[苹果君]]></name>
+    <email><![CDATA[460760604@qq.com]]></email>
   </author>
   <generator uri="http://octopress.org/">Octopress</generator>
 
