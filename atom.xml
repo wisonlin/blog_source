@@ -4,7 +4,7 @@
   <title><![CDATA[苹果君的博客]]></title>
   <link href="http://wihing.github.io/atom.xml" rel="self"/>
   <link href="http://wihing.github.io/"/>
-  <updated>2014-06-22T00:10:40+08:00</updated>
+  <updated>2014-06-22T23:28:37+08:00</updated>
   <id>http://wihing.github.io/</id>
   <author>
     <name><![CDATA[苹果君]]></name>
@@ -12,5 +12,14 @@
   </author>
   <generator uri="http://octopress.org/">Octopress</generator>
 
+  
+  <entry>
+    <title type="html"><![CDATA[viewDidUnload 和 viewWillUnload 被废弃之后的内存警告处理]]></title>
+    <link href="http://wihing.github.io/blog/2014/06/22/viewdidunload-he-viewwillunload-bei-fei-qi-zhi-hou-de-nei-cun-jing-gao-chu-li/"/>
+    <updated>2014-06-22T23:26:24+08:00</updated>
+    <id>http://wihing.github.io/blog/2014/06/22/viewdidunload-he-viewwillunload-bei-fei-qi-zhi-hou-de-nei-cun-jing-gao-chu-li</id>
+    <content type="html"><![CDATA[
+]]></content>
+  </entry>
   
 </feed>
