@@ -4,7 +4,7 @@
   <title><![CDATA[苹果君的博客]]></title>
   <link href="http://wihing.github.io/atom.xml" rel="self"/>
   <link href="http://wihing.github.io/"/>
-  <updated>2014-06-22T23:28:37+08:00</updated>
+  <updated>2014-06-23T21:56:34+08:00</updated>
   <id>http://wihing.github.io/</id>
   <author>
     <name><![CDATA[苹果君]]></name>
@@ -12,6 +12,19 @@
   </author>
   <generator uri="http://octopress.org/">Octopress</generator>
 
+  
+  <entry>
+    <title type="html"><![CDATA[Cant Add Self as Subview Slash]]></title>
+    <link href="http://wihing.github.io/blog/2014/06/23/cant-add-self-as-subview-slash/"/>
+    <updated>2014-06-23T00:00:00+08:00</updated>
+    <id>http://wihing.github.io/blog/2014/06/23/cant-add-self-as-subview-slash</id>
+    <content type="html"><![CDATA[<p>iOS7刚发布的时候，总是出现这个 Can&rsquo;t add self as subview  的崩溃，团队内部没出现过，但是外部用户的crash频频上报这个崩溃。</p>
+
+<p>异常描述和崩溃堆栈是这样的：</p>
+
+<p>*** Terminating app due to uncaught exception &lsquo;NSInvalidArgumentException&rsquo;, reason: &lsquo;Can&rsquo;t add self as subview&rsquo;</p>
+]]></content>
+  </entry>
   
   <entry>
     <title type="html"><![CDATA[viewDidUnload 和 viewWillUnload 被废弃之后的内存警告处理]]></title>
