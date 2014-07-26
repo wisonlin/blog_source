@@ -2,10 +2,10 @@
 #      Main Configs       #
 # ----------------------- #
 
-url: http://yoursite.com
-title: My Octopress Blog
-subtitle: A blogging framework for hackers.
-author: Your Name
+url: http://wihing.github.io
+title: 苹果君的博客
+subtitle: Happy Coding, Happy Living
+author: 苹果君
 simple_search: https://www.google.com/search
 description:
 
@@ -19,7 +19,7 @@ date_format: "ordinal"
 subscribe_rss: /atom.xml
 subscribe_email:
 # RSS feeds can list your email address if you like
-email:
+email: 460760604@qq.com
 
 # ----------------------- #
 #    Jekyll & Plugins     #
