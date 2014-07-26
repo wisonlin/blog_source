@@ -10,8 +10,13 @@
 
   
   <meta name="description" content="由于iOS6以上的UIKit不会在内存警告时自动释放视图，所以viewWillUnload和viewDidUnload将不再触发，因此，在iOS6上，开发者需要负责内存警告时将不用到的视图释放。
-WWDC2012的视频有提到，具体代码如下： ···
-&ndash; (void) &hellip;">
+WWDC2012的视频有提到，具体代码如下： 1
+2
+3
+4
+5
+6
+- (void) &hellip;">
   
 
   <!-- http://t.co/dKP3o1e -->
@@ -96,17 +101,19 @@ WWDC2012的视频有提到，具体代码如下： ···
 <div class="entry-content"><p>由于iOS6以上的UIKit不会在内存警告时自动释放视图，所以viewWillUnload和viewDidUnload将不再触发，因此，在iOS6上，开发者需要负责内存警告时将不用到的视图释放。
 WWDC2012的视频有提到，具体代码如下：</p>
 
-<p>···
-&ndash; (void)didReceiveMemoryWarning {</p>
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>- (void)didReceiveMemoryWarning {
+</span><span class='line'>     if ([self.view window] == nil) {
+</span><span class='line'>          self.view = nil;
+</span><span class='line'>          self.otherSubView = nil;
+</span><span class='line'>     }
+</span><span class='line'>}</span></code></pre></td></tr></table></div></figure>
 
-<pre><code> if ([self.view window] == nil) {
-      self.view = nil;
-      self.otherSubView = nil;
- }
-</code></pre>
-
-<p>}
-···</p>
 
 <p>由于[self view]会引发视图的加载所以上述代码还是有潜在风险的，假如视图控制器在创建之后，在还没有加载视图时收到内存警告，那上面的代码就会触发视图的加载（调用了[self view]引起），反而加大了内存占用。所以应该先判断一下视图是否已被加载。</p>
 
