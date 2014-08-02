@@ -4,7 +4,7 @@
   <title><![CDATA[苹果君的博客]]></title>
   <link href="http://wison.me/atom.xml" rel="self"/>
   <link href="http://wison.me/"/>
-  <updated>2014-08-02T22:47:03+08:00</updated>
+  <updated>2014-08-02T23:13:29+08:00</updated>
   <id>http://wison.me/</id>
   <author>
     <name><![CDATA[苹果君]]></name>
@@ -125,7 +125,7 @@
 </span></code></pre></td></tr></table></div></figure>
 
 
-<p class='post-footer'>原始地址<a href='http://wison.me/blog/2014/06/01/cant-add-self-as-subview/'>http://wison.me/blog/2014/06/01/cant-add-self-as-subview/</a><br/>&nbsp;written by <a href='http://wison.me'>苹果君</a>&nbsp;posted at <a href='http://wison.me'>http://wison.me</a></p>
+<p class='post-footer'>原始地址 <a href='http://wison.me/blog/2014/06/01/cant-add-self-as-subview/'>http://wison.me/blog/2014/06/01/cant-add-self-as-subview/</a><br/>&nbsp;written by <a href='http://wison.me'>苹果君</a>&nbsp;posted at <a href='http://wison.me'>http://wison.me</a></p>
 
 ]]></content>
   </entry>
@@ -309,7 +309,7 @@
 </span></code></pre></td></tr></table></div></figure>
 
 
-<p class='post-footer'>原始地址<a href='http://wison.me/blog/2013/04/07/viewdidunload-he-viewwillunload-bei-fei-qi-zhi-hou-de-nei-cun-jing-gao-chu-li/'>http://wison.me/blog/2013/04/07/viewdidunload-he-viewwillunload-bei-fei-qi-zhi-hou-de-nei-cun-jing-gao-chu-li/</a><br/>&nbsp;written by <a href='http://wison.me'>苹果君</a>&nbsp;posted at <a href='http://wison.me'>http://wison.me</a></p>
+<p class='post-footer'>原始地址 <a href='http://wison.me/blog/2013/04/07/viewdidunload-he-viewwillunload-bei-fei-qi-zhi-hou-de-nei-cun-jing-gao-chu-li/'>http://wison.me/blog/2013/04/07/viewdidunload-he-viewwillunload-bei-fei-qi-zhi-hou-de-nei-cun-jing-gao-chu-li/</a><br/>&nbsp;written by <a href='http://wison.me'>苹果君</a>&nbsp;posted at <a href='http://wison.me'>http://wison.me</a></p>
 
 ]]></content>
   </entry>
@@ -365,7 +365,7 @@ iOS6已将viewWillUnload和viewDidUnload废弃，原因是UIKit在内存警告�
 具体做法是将变量设置为空，（注意和dealloc中将变量release的区别）注意此时Controller的view属性是空的。
 在ViewController的生命周期的各个阶段，我们都有责任去适当的创建和销毁对象，具体各个阶段要做的事情，见官方文档的表Managing Memory Efficiently</p>
 
-<p>注：本文中的ViewController即视图控制器，根类是UIViewController。View是视图，根类是UIView。<p class='post-footer'>原始地址<a href='http://wison.me/blog/2012/03/03/ios-viewcontrollerde-sheng-ming-zhou-qi-ji-qi-jia-zai-viewde-bu-zou/'><a href="http://wison.me/blog/2012/03/03/ios-viewcontrollerde-sheng-ming-zhou-qi-ji-qi-jia-zai-viewde-bu-zou/">http://wison.me/blog/2012/03/03/ios-viewcontrollerde-sheng-ming-zhou-qi-ji-qi-jia-zai-viewde-bu-zou/</a></a><br/>&nbsp;written by <a href='http://wison.me'>苹果君</a>&nbsp;posted at <a href='http://wison.me'><a href="http://wison.me">http://wison.me</a></a></p></p>
+<p>注：本文中的ViewController即视图控制器，根类是UIViewController。View是视图，根类是UIView。<p class='post-footer'>原始地址 <a href='http://wison.me/blog/2012/03/03/ios-viewcontrollerde-sheng-ming-zhou-qi-ji-qi-jia-zai-viewde-bu-zou/'><a href="http://wison.me/blog/2012/03/03/ios-viewcontrollerde-sheng-ming-zhou-qi-ji-qi-jia-zai-viewde-bu-zou/">http://wison.me/blog/2012/03/03/ios-viewcontrollerde-sheng-ming-zhou-qi-ji-qi-jia-zai-viewde-bu-zou/</a></a><br/>&nbsp;written by <a href='http://wison.me'>苹果君</a>&nbsp;posted at <a href='http://wison.me'><a href="http://wison.me">http://wison.me</a></a></p></p>
 ]]></content>
   </entry>
   
