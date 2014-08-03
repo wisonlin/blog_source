@@ -1,33 +1,34 @@
 ---
 layout: post
 title: "viewDidUnload 和 viewWillUnload 被废弃之后的内存警告处理"
-date: 2014-06-22 23:26:24 +0800
+date: 2013-04-07 21:31:24 +0800
 comments: true
 categories: 
 ---
 
-
-
 由于iOS6以上的UIKit不会在内存警告时自动释放视图，所以viewWillUnload和viewDidUnload将不再触发，因此，在iOS6上，开发者需要负责内存警告时将不用到的视图释放。
+<!-- more -->
 WWDC2012的视频有提到，具体代码如下：
 
-···
+```objc
 - (void)didReceiveMemoryWarning {
      if ([self.view window] == nil) {
           self.view = nil;
           self.otherSubView = nil;
      }
 }
-···
+```
 
 由于[self view]会引发视图的加载所以上述代码还是有潜在风险的，假如视图控制器在创建之后，在还没有加载视图时收到内存警告，那上面的代码就会触发视图的加载（调用了[self view]引起），反而加大了内存占用。所以应该先判断一下视图是否已被加载。
 
+```objc
 - (void)didReceiveMemoryWarning {
      if ([self isViewLoaded] && [self.view window] == nil) {
           self.view = nil;
           self.otherSubView = nil;
      }
 }
+```
 
 Notification 的注册和反注册以及Delegate的设置和置空
 
@@ -37,6 +38,7 @@ Notification 的注册和反注册以及Delegate的设置和置空
 
 综上所述，最佳实践的代码如下：
 
+```objc
 - (void)viewDidLoad
 {
      self.subView.delegate = self;
@@ -51,7 +53,6 @@ Notification 的注册和反注册以及Delegate的设置和置空
      [[NSNotificationCenter defaultCenter] removeObserver:self];
      self.viewCreatedByCode = nil;
 }
-
 
 - (void)didReceiveMemoryWarning {
      if ([self isViewLoaded] && [self.view window] == nil) {
@@ -100,3 +101,4 @@ Notification 的注册和反注册以及Delegate的设置和置空
          [[NSNotificationCenter defaultCenter] removeObserver:self];
      }
 }
+```

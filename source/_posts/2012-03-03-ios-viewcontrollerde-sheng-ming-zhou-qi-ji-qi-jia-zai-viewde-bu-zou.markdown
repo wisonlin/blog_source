@@ -1,13 +1,15 @@
 ---
 layout: post
 title: "[iOS] ViewController的生命周期及其加载View的步骤"
-date: 2014-07-22 22:52:08 +0800
+date: 2012-03-03 12:17:08 +0800
 comments: true
 categories: 
 ---
 
 
 首先先阐明ViewController的职责：对内管理与之关联的View，对外跟其他ViewController通信和协调。对于与之关联的View，ViewController总是在需要的时候才加载视图，并在不需要的时候卸载视图，所以也同时担当了管理应用资源的责任。理解ViewController的LifeCycle（生命周期），能够有效地管理应用资源。
+
+<!-- more -->
 
 ####**ViewController的初始化：**
 
@@ -37,11 +39,12 @@ B 找跟ViewController类名一样的文件，例如MyViewController，则查找
 就算强制将viewController的view设为nil也不会触发。
 如果viewController从创建到销毁期间都没有内存警告，那么这两个函数将始终不会被调用。
 
-更新：iOS6已将viewWillUnload和viewDidUnload废弃，原因是UIKit在内存警告的时候已经不会自动释放无用的视图。
+更新：
+iOS6已将viewWillUnload和viewDidUnload废弃，原因是UIKit在内存警告的时候已经不会自动释放无用的视图。
 详见 viewDidUnload 和 viewWillUnload 被废弃
 
 注意：
-    由于Controller加载View时，会自动将一些View对象指向其对应的IBOutlet变量。
+由于Controller加载View时，会自动将一些View对象指向其对应的IBOutlet变量。
 所以当view被卸载时我们必须在viewDidUnload将这些变量release掉，ViewController不会自动做这件事。
 具体做法是将变量设置为空，（注意和dealloc中将变量release的区别）注意此时Controller的view属性是空的。
 在ViewController的生命周期的各个阶段，我们都有责任去适当的创建和销毁对象，具体各个阶段要做的事情，见官方文档的表Managing Memory Efficiently
