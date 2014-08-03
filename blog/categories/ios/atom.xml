@@ -1,0 +1,287 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+
+  <title><![CDATA[Category: iOS | 苹果君的博客]]></title>
+  <link href="http://wison.me/blog/categories/ios/atom.xml" rel="self"/>
+  <link href="http://wison.me/"/>
+  <updated>2014-08-03T23:05:25+08:00</updated>
+  <id>http://wison.me/</id>
+  <author>
+    <name><![CDATA[苹果君]]></name>
+    <email><![CDATA[460760604@qq.com]]></email>
+  </author>
+  <generator uri="http://octopress.org/">Octopress</generator>
+
+  
+  <entry>
+    <title type="html"><![CDATA[Can't Add Self as Subview]]></title>
+    <link href="http://wison.me/blog/2014/06/01/cant-add-self-as-subview/"/>
+    <updated>2014-06-01T11:37:34+08:00</updated>
+    <id>http://wison.me/blog/2014/06/01/cant-add-self-as-subview</id>
+    <content type="html"><![CDATA[<p>iOS7刚发布的时候，总是出现这个 Can&rsquo;t add self as subview  的崩溃，团队内部没出现过，但是外部用户的crash频频上报这个崩溃。本文讲述发现这个bug，分析定位，到解决的过程。</p>
+
+<!-- more -->
+
+
+<p>异常描述和崩溃堆栈是这样的：</p>
+
+<p>*** Terminating app due to uncaught exception &lsquo;NSInvalidArgumentException&rsquo;, reason: &lsquo;Can&rsquo;t add self as subview&rsquo;</p>
+
+<p><img src="/images/2014-06-01-1.jpg" alt="image" /></p>
+
+<p>这里有两个线索，一个是从崩溃堆栈中看到了崩溃的时间点：导航栏对内部的控制器做切换动画的时候崩溃。</p>
+
+<p>另一个线索则是addSubView的参数不能是对象本身。一开始怀疑是addSubView传入self引起，于是用类似 [self addSubView:self] 的代码试了一下，的确是会崩溃的。</p>
+
+<p><img src="/images/2014-06-01-1.jpg" alt="image" /></p>
+
+<p>但是堆栈跟外部用户上报的不一样，排除 [self addSubView:self] 直接导致崩溃的可能性。</p>
+
+<p>也就是说，不是我们工程调用了[self addSubView:self] 引起崩溃，
+而是我们工程里面的某一些代码会导致UIKit内部执行 addSubView 的时候，传入了 self。
+为什么说是我们的代码引起呢？因为崩溃的时候，页面总是停留在某几个特定的页面，这个后面会分析。</p>
+
+<p>再看看第二个线索，即导航栏在做动画的时候出了问题。</p>
+
+<p>以上，我们可以得出一个中间结论，即我们的代码，让导航栏在做动画的时候，执行了一次 [self addSubView:self]。
+再说说崩溃集中的几个页面，用户上报的崩溃中，并不是总在一个页面崩溃，但是固定出现在特定的某几个页面。</p>
+
+<p>着重看了log里面崩溃前每一个页面切换的时间，果然比较短，有些甚至少于0.5秒，少于导航栏push和pop动画的时间。
+接着，用代码模拟一下快速切换的场景，比如0.3秒只能做两次push操作：</p>
+
+<p>```objc
+[navigationController pushViewController:[[TMViewController alloc] init] animated:YES];</p>
+
+<pre><code>dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(.3 * NSEC_PER_SEC)), 
+dispatch_get_main_queue(), ^{
+[navigationController pushViewController:[[TMViewController alloc] init] animated:YES];
+</code></pre>
+
+<p>}
+```</p>
+
+<p>果然崩溃了，得到的堆栈跟文章开头的一模一样。</p>
+
+<p>接着，检查崩溃上报的其他页面，发现这些页面都在特定的场景下会出现同时做push或者pop操作的情况。
+于是，模拟各种短时间push和pop页面的场景，都会出现这样的崩溃。
+这时候几乎已经明确了就是动画被打断引起的。</p>
+
+<p>原来，其实就是iOS5，6下的nested push 问题，只不过到iOS7上，这个问题的提前在做动画的时候崩溃了。</p>
+
+<p>为了防止这种情况，我们在UINavigationController基类中加入防御，具体做法是在push，pop方法中设置一个标志位(animating=YES)，在动画结束之后，再重置这个标志位，然后，用这个标志位判断push和pop操作是否能够执行。</p>
+
+<p>比如，push这样实现：</p>
+
+<p>```objc
+&ndash; (void)pushViewController:(UIViewController *)viewController animated:(BOOL)animated
+{</p>
+
+<pre><code>if (self.topViewController.animating) {
+    NSLog(@"error push when animating.");
+    return;
+}
+self.topViewController.animating = animated;
+viewController.animating = animated;
+[super pushViewController:viewController aniamted:animated];
+</code></pre>
+
+<p>}
+```</p>
+
+<p>其中有一个细节是，参与动画的两个控制器都需要设标志位。
+结束动画的时候重置标志位，时机是在控制器的viewDidAppear和viewDidDisappear里面。</p>
+
+<p>```objc
+&ndash; (void)viewDidAppear:(BOOL)animated
+{</p>
+
+<pre><code>[super viewDidAppear:animated];
+self.animating = NO;
+</code></pre>
+
+<p>}</p>
+
+<ul>
+<li>(void)viewDidDisappear:(BOOL)animated
+{
+  [super viewDidDisappear:animated];
+  self.animating = NO;
+}</li>
+</ul>
+
+
+<p>```</p>
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[viewDidUnload 和 viewWillUnload 被废弃之后的内存警告处理]]></title>
+    <link href="http://wison.me/blog/2013/04/07/viewdidunload-he-viewwillunload-bei-fei-qi-zhi-hou-de-nei-cun-jing-gao-chu-li/"/>
+    <updated>2013-04-07T21:31:24+08:00</updated>
+    <id>http://wison.me/blog/2013/04/07/viewdidunload-he-viewwillunload-bei-fei-qi-zhi-hou-de-nei-cun-jing-gao-chu-li</id>
+    <content type="html"><![CDATA[<p>由于iOS6以上的UIKit不会在内存警告时自动释放视图，所以viewWillUnload和viewDidUnload将不再触发，因此，在iOS6上，开发者需要负责内存警告时将不用到的视图释放。</p>
+
+<!-- more -->
+
+
+<p>WWDC2012的视频有提到，具体代码如下：</p>
+
+<p>```objc
+&ndash; (void)didReceiveMemoryWarning {</p>
+
+<pre><code> if ([self.view window] == nil) {
+      self.view = nil;
+      self.otherSubView = nil;
+ }
+</code></pre>
+
+<p>}
+```</p>
+
+<p>由于[self view]会引发视图的加载所以上述代码还是有潜在风险的，假如视图控制器在创建之后，在还没有加载视图时收到内存警告，那上面的代码就会触发视图的加载（调用了[self view]引起），反而加大了内存占用。所以应该先判断一下视图是否已被加载。</p>
+
+<p>```objc
+&ndash; (void)didReceiveMemoryWarning {</p>
+
+<pre><code> if ([self isViewLoaded] &amp;&amp; [self.view window] == nil) {
+      self.view = nil;
+      self.otherSubView = nil;
+ }
+</code></pre>
+
+<p>}
+```</p>
+
+<p>Notification 的注册和反注册以及Delegate的设置和置空</p>
+
+<p>如果注册的通知跟界面相关，可以考虑将注册放入viewWillAppear并在viewWillDisappear中反注册。
+如果需要在视图加载时就注册，那就在viewDidLoad注册，dealloc和didReceiveMemoryWarning中根据视图是否加载过来进行反注册。
+注意viewDidUnload和viewDidLoad不是成对调用的，所以即使是iOS5或者以下的版本也不能在viewDidUnload里面反注册。参见[iOS] ViewController的生命周期及其加载View的步骤。</p>
+
+<p>综上所述，最佳实践的代码如下：</p>
+
+<p>```objc
+&ndash; (void)viewDidLoad
+{</p>
+
+<pre><code> self.subView.delegate = self;
+ [[NSNotificationCenter defaultCenter] addObserver:self];
+ self.viewCreatedByCode = [[UIView alloc] init];
+</code></pre>
+
+<p>}</p>
+
+<p>// 自定义函数viewUnloaded，其操作与viewDidLoad对称。
+&ndash; (void)viewUnloaded
+{</p>
+
+<pre><code> self.subView.delegate = nil;
+ [[NSNotificationCenter defaultCenter] removeObserver:self];
+ self.viewCreatedByCode = nil;
+</code></pre>
+
+<p>}</p>
+
+<ul>
+<li><p>(void)didReceiveMemoryWarning {
+   if ([self isViewLoaded] &amp;&amp; [self.view window] == nil) {
+        self.view = nil; // 需要开发者手动释放控制器的视图。
+        self.viewCreatedByNib = nil;  // 在xib中创建的视图也要手动清空。
+        [self viewUnloaded]; // 视图已被卸载，调用viewDIdLoad的反操作。
+   }
+}</p></li>
+<li><p>(void)dealloc
+{
+   if ([self isViewLoaded]) {
+        [self viewUnloaded]; // 如果视图已被加载，说明viewDidLoad被调用过，所以调用viewDIdLoad的反操作。
+   }
+}</p></li>
+<li><p>(void)viewDidLoad
+{
+   self.subView.delegate = self;
+   [[NSNotificationCenter defaultCenter] addObserver:self];
+   self.viewCreatedByCode = [[UIView alloc] init];
+}</p></li>
+<li><p>(void)viewDidUnload
+{
+   self.subView.delegate = nil;
+   [[NSNotificationCenter defaultCenter] removeObserver:self];
+   self.viewCreatedByCode = nil;
+}</p></li>
+<li><p>(void)didReceiveMemoryWarning {
+   if ([self isViewLoaded] &amp;&amp; [self.view window] == nil) {
+       [self.photoCache removeAllObjects];
+       if (>=iOS6) {
+            self.view = nil;
+            [self viewDidUnload];
+       }
+   }
+}</p></li>
+<li><p>(void)dealloc
+{
+   if ([self isViewLoaded]) {
+       [[NSNotificationCenter defaultCenter] removeObserver:self];
+   }
+}
+```</p></li>
+</ul>
+
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[[iOS] ViewController的生命周期及其加载View的步骤]]></title>
+    <link href="http://wison.me/blog/2012/03/03/ios-viewcontrollerde-sheng-ming-zhou-qi-ji-qi-jia-zai-viewde-bu-zou/"/>
+    <updated>2012-03-03T12:17:08+08:00</updated>
+    <id>http://wison.me/blog/2012/03/03/ios-viewcontrollerde-sheng-ming-zhou-qi-ji-qi-jia-zai-viewde-bu-zou</id>
+    <content type="html"><![CDATA[<p>首先先阐明ViewController的职责：对内管理与之关联的View，对外跟其他ViewController通信和协调。对于与之关联的View，ViewController总是在需要的时候才加载视图，并在不需要的时候卸载视图，所以也同时担当了管理应用资源的责任。理解ViewController的LifeCycle（生命周期），能够有效地管理应用资源。</p>
+
+<!-- more -->
+
+
+<h4><strong>ViewController的初始化：</strong></h4>
+
+<p>从Storyboards中加载的时候，会调用initWithCode，如果不存在则调用init。之后对里面的每个对象调用awakeFromNib方法。
+从内存中alloc出来的情况下，调init方法。
+ViewController查找与其关联的view，其顺序是：</p>
+
+<ol>
+<li><p>先判断子类是否重写了loadView，如果有直接调用。之后调viewDidLoad完成View的加载。</p></li>
+<li><p>如果是外部通过调用initWithNibName:bundle指定nib文件名的话，ViewController记载此nib来创建View。</p></li>
+<li><p>如果initWithNibName:bundle的name参数为nil，则ViewController会通过以下两个步骤找到与其关联的nib。
+A 如果类名包含Controller，例如ViewController的类名是MyViewController，则查找是否存在MyView.nib；
+B 找跟ViewController类名一样的文件，例如MyViewController，则查找是否存在MyViewController.nib。</p></li>
+<li><p>如果子类没有重写的loadView，则ViewController会从StroyBoards中找或者调用其默认的loadView，默认的loadView返回一个空白的UIView对象。
+注意第一步，ViewController是判断子类是否重写了loadView，而不是判断调用子类的loadView之后ViewController的View是否为空。就是说，如果子类重写了loadView的话，不管子类在loadView里面能否获取到View，ViewController都会直接调viewDidLoad完成View的加载。</p></li>
+</ol>
+
+
+<h4><strong> ViewController的卸载View的步骤：</strong></h4>
+
+<ol>
+<li>系统发出内存警告或者ViewController本身调用导致didReceiveMemoryWarning被调用</li>
+<li>如果此时view没有被加入到任何视图树上，则调用viewWillUnload之后释放View</li>
+<li>调用viewDidUnload</li>
+</ol>
+
+
+<p>注意view的Load和Unload不是成对调用的。
+因为viewWillUnload和viewDidUnload这两个函数只在内存警告时被调用。
+就算强制将viewController的view设为nil也不会触发。
+如果viewController从创建到销毁期间都没有内存警告，那么这两个函数将始终不会被调用。</p>
+
+<p>更新：
+iOS6已将viewWillUnload和viewDidUnload废弃，原因是UIKit在内存警告的时候已经不会自动释放无用的视图。
+详见 viewDidUnload 和 viewWillUnload 被废弃</p>
+
+<p>注意：
+由于Controller加载View时，会自动将一些View对象指向其对应的IBOutlet变量。
+所以当view被卸载时我们必须在viewDidUnload将这些变量release掉，ViewController不会自动做这件事。
+具体做法是将变量设置为空，（注意和dealloc中将变量release的区别）注意此时Controller的view属性是空的。
+在ViewController的生命周期的各个阶段，我们都有责任去适当的创建和销毁对象，具体各个阶段要做的事情，见官方文档的表Managing Memory Efficiently</p>
+
+<p>注：本文中的ViewController即视图控制器，根类是UIViewController。View是视图，根类是UIView。</p>
+]]></content>
+  </entry>
+  
+</feed>
