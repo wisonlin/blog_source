@@ -3,7 +3,7 @@ layout: post
 title: "viewDidUnload 和 viewWillUnload 被废弃之后的内存警告处理"
 date: 2013-04-07 21:31:24 +0800
 comments: true
-categories: 
+categories: iOS
 ---
 
 由于iOS6以上的UIKit不会在内存警告时自动释放视图，所以viewWillUnload和viewDidUnload将不再触发，因此，在iOS6上，开发者需要负责内存警告时将不用到的视图释放。

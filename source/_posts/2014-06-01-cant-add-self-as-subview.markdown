@@ -3,7 +3,7 @@ layout: post
 title: "Can't add self as subview"
 date: 2014-06-01 11:37:34 +0800
 comments: true
-categories: 
+categories: iOS
 ---
 
 iOS7刚发布的时候，总是出现这个 Can't add self as subview  的崩溃，团队内部没出现过，但是外部用户的crash频频上报这个崩溃。本文讲述发现这个bug，分析定位，到解决的过程。

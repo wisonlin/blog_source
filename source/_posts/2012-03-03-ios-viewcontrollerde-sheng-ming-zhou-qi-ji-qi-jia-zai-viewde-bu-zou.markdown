@@ -3,7 +3,7 @@ layout: post
 title: "[iOS] ViewController的生命周期及其加载View的步骤"
 date: 2012-03-03 12:17:08 +0800
 comments: true
-categories: 
+categories: iOS
 ---
 
 
