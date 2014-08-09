@@ -20,3 +20,4 @@ email me : 460760604@qq.com
 Also know me at [github](https://github.com/wihing) or 
 [stackoverflow](http://stackoverflow.com/users/558017/wihing)
 
+Subscribe to my [RSS Feeds](http://wison.me/atom.xml)

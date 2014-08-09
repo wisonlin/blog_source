@@ -1,3 +1,22 @@
+---
+layout: post
+title: "判断自己的应用是否被调试启动"
+date: 2014-08-09 14:41:33 +0800
+comments: true
+categories: iOS
+---
+
+
+转自：https://developer.apple.com/library/ios/qa/qa1361/_index.html#//apple_ref/doc/uid/DTS10003368
+
+目前能够想到的两个用处：
+
+1. 加入一些开发调试过程中才运行的代码，方便开发。
+2. 可以检测到被恶意调起，终止敏感操作。
+
+<!-- more -->
+
+```
 #include <assert.h>
 #include <stdbool.h>
 #include <sys/types.h>
@@ -36,3 +55,4 @@ static bool AmIBeingDebugged(void)
 
     return ( (info.kp_proc.p_flag & P_TRACED) != 0 );
 }
+```
