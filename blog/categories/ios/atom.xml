@@ -4,7 +4,7 @@
   <title><![CDATA[Category: iOS | 苹果君的博客]]></title>
   <link href="http://wison.me/blog/categories/ios/atom.xml" rel="self"/>
   <link href="http://wison.me/"/>
-  <updated>2014-08-09T14:06:33+08:00</updated>
+  <updated>2014-08-09T14:46:37+08:00</updated>
   <id>http://wison.me/</id>
   <author>
     <name><![CDATA[苹果君]]></name>
@@ -12,6 +12,78 @@
   </author>
   <generator uri="http://octopress.org/">Octopress</generator>
 
+  
+  <entry>
+    <title type="html"><![CDATA[判断自己的应用是否被调试启动]]></title>
+    <link href="http://wison.me/blog/2014/08/09/pan-duan-zi-ji-de-ying-yong-shi-fou-bei-diao-shi-qi-dong/"/>
+    <updated>2014-08-09T14:41:33+08:00</updated>
+    <id>http://wison.me/blog/2014/08/09/pan-duan-zi-ji-de-ying-yong-shi-fou-bei-diao-shi-qi-dong</id>
+    <content type="html"><![CDATA[<p>转自：<a href="https://developer.apple.com/library/ios/qa/qa1361/_index.html#//apple_ref/doc/uid/DTS10003368">https://developer.apple.com/library/ios/qa/qa1361/_index.html#//apple_ref/doc/uid/DTS10003368</a></p>
+
+<p>目前能够想到的两个用处：</p>
+
+<ol>
+<li>加入一些开发调试过程中才运行的代码，方便开发。</li>
+<li>可以检测到被恶意调起，终止敏感操作。</li>
+</ol>
+
+
+<!-- more -->
+
+
+<p>```</p>
+
+<h1>include &lt;assert.h></h1>
+
+<h1>include &lt;stdbool.h></h1>
+
+<h1>include &lt;sys/types.h></h1>
+
+<h1>include &lt;unistd.h></h1>
+
+<h1>include &lt;sys/sysctl.h></h1>
+
+<p>static bool AmIBeingDebugged(void)</p>
+
+<pre><code>// Returns true if the current process is being debugged (either 
+// running under the debugger or has a debugger attached post facto).
+</code></pre>
+
+<p>{</p>
+
+<pre><code>int                 junk;
+int                 mib[4];
+struct kinfo_proc   info;
+size_t              size;
+
+// Initialize the flags so that, if sysctl fails for some bizarre 
+// reason, we get a predictable result.
+
+info.kp_proc.p_flag = 0;
+
+// Initialize mib, which tells sysctl the info we want, in this case
+// we're looking for information about a specific process ID.
+
+mib[0] = CTL_KERN;
+mib[1] = KERN_PROC;
+mib[2] = KERN_PROC_PID;
+mib[3] = getpid();
+
+// Call sysctl.
+
+size = sizeof(info);
+junk = sysctl(mib, sizeof(mib) / sizeof(*mib), &amp;info, &amp;size, NULL, 0);
+assert(junk == 0);
+
+// We're being debugged if the P_TRACED flag is set.
+
+return ( (info.kp_proc.p_flag &amp; P_TRACED) != 0 );
+</code></pre>
+
+<p>}
+```</p>
+]]></content>
+  </entry>
   
   <entry>
     <title type="html"><![CDATA[Can't Add Self as Subview]]></title>

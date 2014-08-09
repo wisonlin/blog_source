@@ -1,25 +1,38 @@
-@font-face {
-      font-family: 'PT Serif';
-      font-style: normal;
-      font-weight: 400;
-      src: local('PT Serif'), local('PTSerif-Regular'), url(/stylesheets/EgBlzoNBIHxNPCMwXaAhYPesZW2xOQ-xsNqO47m55DA.ttf) format('truetype');
-    }
-    @font-face {
-      font-family: 'PT Serif';
-      font-style: normal;
-      font-weight: 700;
-      src: local('PT Serif Bold'), local('PTSerif-Bold'), url(/stylesheets/QABk9IxT-LFTJ_dQzv7xpJ0EAVxt0G0biEntp43Qt6E.ttf) format('truetype');
-    }
-    @font-face {
-      font-family: 'PT Serif';
-      font-style: italic;
-      font-weight: 400;
-      src: local('PT Serif Italic'), local('PTSerif-Italic'), url(/stylesheets/03aPdn7fFF3H6ngCgAlQzC3USBnSvpkopQaUR-2r7iU.ttf) format('truetype');
-    }
-    @font-face {
-      font-family: 'PT Serif';
-      font-style: italic;
-      font-weight: 700;
-      src: local('PT Serif Bold Italic'), local('PTSerif-BoldItalic'), url(/stylesheets/Foydq9xJp--nfYIx2TBz9fEr6Hm6RMS0v1dtXsGir4g.ttf) format('truetype');
-    }
-    
+#include <assert.h>
+#include <stdbool.h>
+#include <sys/types.h>
+#include <unistd.h>
+#include <sys/sysctl.h>
+
+static bool AmIBeingDebugged(void)
+    // Returns true if the current process is being debugged (either 
+    // running under the debugger or has a debugger attached post facto).
+{
+    int                 junk;
+    int                 mib[4];
+    struct kinfo_proc   info;
+    size_t              size;
+
+    // Initialize the flags so that, if sysctl fails for some bizarre 
+    // reason, we get a predictable result.
+
+    info.kp_proc.p_flag = 0;
+
+    // Initialize mib, which tells sysctl the info we want, in this case
+    // we're looking for information about a specific process ID.
+
+    mib[0] = CTL_KERN;
+    mib[1] = KERN_PROC;
+    mib[2] = KERN_PROC_PID;
+    mib[3] = getpid();
+
+    // Call sysctl.
+
+    size = sizeof(info);
+    junk = sysctl(mib, sizeof(mib) / sizeof(*mib), &info, &size, NULL, 0);
+    assert(junk == 0);
+
+    // We're being debugged if the P_TRACED flag is set.
+
+    return ( (info.kp_proc.p_flag & P_TRACED) != 0 );
+}
