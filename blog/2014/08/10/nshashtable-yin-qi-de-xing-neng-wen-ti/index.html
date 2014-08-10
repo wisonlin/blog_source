@@ -5,12 +5,11 @@
 <!--[if (gt IE 8)|(gt IEMobile 7)|!(IEMobile)|!(IE)]><!--><html class="no-js" lang="en"><!--<![endif]-->
 <head>
   <meta charset="utf-8">
-  <title>判断自己的应用是否被调试启动 - 苹果君的博客</title>
+  <title>NSHashTable 引起的性能问题 - 苹果君的博客</title>
   <meta name="author" content="苹果君">
 
   
-  <meta name="description" content="转自：https://developer.apple.com/library/ios/qa/qa1361/_index.html#//apple_ref/doc/uid/DTS10003368 目前能够想到的两个用处： 加入一些开发调试过程中才运行的代码，方便开发。
-可以检测到被恶意调起， &hellip;">
+  <meta name="description" content="本文介绍了在 Core Text 排版中，往 NSAttributeString 增加一个属性时引起的性能问题。 在 Feeds 的 Core Text 排版中，NSAttributeString 中的某一小段的点击跳转行为是存储在 NSAttributeString 的属性中的。 代码如下： &hellip;">
   
 
   <!-- http://t.co/dKP3o1e -->
@@ -19,7 +18,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
   
-  <link rel="canonical" href="http://wison.me/blog/2014/08/09/pan-duan-zi-ji-de-ying-yong-shi-fou-bei-diao-shi-qi-dong">
+  <link rel="canonical" href="http://wison.me/blog/2014/08/10/nshashtable-yin-qi-de-xing-neng-wen-ti">
   <link href="/favicon.png" rel="icon">
   <link href="/stylesheets/screen.css" media="screen, projection" rel="stylesheet" type="text/css">
   <link href="/atom.xml" rel="alternate" title="苹果君的博客" type="application/atom+xml">
@@ -73,7 +72,7 @@
   
   <header>
     
-      <h1 class="entry-title">判断自己的应用是否被调试启动</h1>
+      <h1 class="entry-title">NSHashTable 引起的性能问题</h1>
     
     
       <p class="meta">
@@ -89,7 +88,7 @@
   
 
 
-<time datetime="2014-08-09T14:41:33+08:00" pubdate data-updated="true">Aug 9<span>th</span>, 2014</time>
+<time datetime="2014-08-10T01:46:40+08:00" pubdate data-updated="true">Aug 10<span>th</span>, 2014</time>
         
 		
 		   | <a href="#comments">Comments</a>
@@ -99,98 +98,61 @@
   </header>
 
 
-<div class="entry-content"><p>转自：<a href="https://developer.apple.com/library/ios/qa/qa1361/_index.html#//apple_ref/doc/uid/DTS10003368">https://developer.apple.com/library/ios/qa/qa1361/_index.html#//apple_ref/doc/uid/DTS10003368</a></p>
-
-<p>目前能够想到的两个用处：</p>
-
-<ol>
-<li>加入一些开发调试过程中才运行的代码，方便开发。</li>
-<li>可以检测到被恶意调起，终止敏感操作。</li>
-</ol>
-
+<div class="entry-content"><p>  本文介绍了在 Core Text 排版中，往 NSAttributeString 增加一个属性时引起的性能问题。</p>
 
 <!-- more -->
 
 
+<p>  在 Feeds 的 Core Text 排版中，NSAttributeString 中的某一小段的点击跳转行为是存储在 NSAttributeString 的属性中的。</p>
+
+<p>代码如下：</p>
+
+<p>  <img src="/images/2014-08-10-1-1.png" alt="image" /></p>
+
+<p>  QZTextLinkHelper 存储了点击跳转的相关信息，比如 url 跳转，昵称跳转等。</p>
+
+<p>  setLinkHelper 做为 NSAttributeString 的扩展方法，通过 [NSAttributeString addAttribute:value:range] 方法存储 linkHelper 的属性。</p>
+
+<p>  这里，linkHelper 的 linkAttributes 是一个 NSDictionary 对象。</p>
+
+<p>  好，问题出来了。我们发现，Feeds 排版变得异常耗时，滑动卡顿，profile 一下之后发现一个奇怪的热点：</p>
+
+<p>  <img src="/images/2014-08-10-1-2.jpeg" alt="image" /></p>
+
+<p>  [NSAttributeString addAttribute:value:range] 里面耗时很多，仔细看调用栈发现，内部的 attribute 都是通过 NSHashTable 存储的。</p>
+
+<p>  堆栈中出现的 [NSHashTable member:] 是取值操作，耗时主要在最后的比较两个 Dictionary 是否相等上面。</p>
+
+<p>  我们先重温一下哈希表取值的原理，见下图，红色部分代表耗时很长的步骤。</p>
+
+<p>  <img src="/images/2014-08-10-1-3.png" alt="image" /></p>
+
+<p>  根据上图，我们可以看出，当哈希表频繁对比两个对象是否相等的时候，说明哈希表的键冲突已经非常严重了。</p>
+
+<p>  于是转而把目光转向 NSDictionary 是怎么计算自己的哈希值的。</p>
+
+<p>  写了一个 demo 试了一下，发现 NSDictionary 的哈希值等于其 key 的个数，非常简单的一个计算，也非常容易冲突。</p>
+
+<p>  于是，解决方法就是在 addAttribute 的时候直接塞入 linkHelper 就可以了。
+  因为NSObject的哈希值默认是指针地址。</p>
+
+<p>总结：</p>
+
+<p>  [NSAttributeString addAttribute:value:range] 这个方法如果传入一个 NSDictionary 会非常耗时，原因有两个：</p>
+
+<ol>
+<li><p> NSAttributeString 以 HashTable 的方式存储 attribute，这使 attribute 的存取变得很复杂，我们必须确保传入的自定义 attribute 的哈希值不易冲突，或者保证其 isEqual 方法的效率。</p></li>
+<li><p> NSDictionary 的哈希值计算太过于简单了，基本不能跟 NSHashTable 这种容器共存。</p></li>
+</ol>
 
 
-<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-<span class='line-number'>16</span>
-<span class='line-number'>17</span>
-<span class='line-number'>18</span>
-<span class='line-number'>19</span>
-<span class='line-number'>20</span>
-<span class='line-number'>21</span>
-<span class='line-number'>22</span>
-<span class='line-number'>23</span>
-<span class='line-number'>24</span>
-<span class='line-number'>25</span>
-<span class='line-number'>26</span>
-<span class='line-number'>27</span>
-<span class='line-number'>28</span>
-<span class='line-number'>29</span>
-<span class='line-number'>30</span>
-<span class='line-number'>31</span>
-<span class='line-number'>32</span>
-<span class='line-number'>33</span>
-<span class='line-number'>34</span>
-<span class='line-number'>35</span>
-<span class='line-number'>36</span>
-<span class='line-number'>37</span>
-<span class='line-number'>38</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>#include &lt;assert.h&gt;
-</span><span class='line'>#include &lt;stdbool.h&gt;
-</span><span class='line'>#include &lt;sys/types.h&gt;
-</span><span class='line'>#include &lt;unistd.h&gt;
-</span><span class='line'>#include &lt;sys/sysctl.h&gt;
-</span><span class='line'>
-</span><span class='line'>static bool AmIBeingDebugged(void)
-</span><span class='line'>    // Returns true if the current process is being debugged (either 
-</span><span class='line'>    // running under the debugger or has a debugger attached post facto).
-</span><span class='line'>{
-</span><span class='line'>    int                 junk;
-</span><span class='line'>    int                 mib[4];
-</span><span class='line'>    struct kinfo_proc   info;
-</span><span class='line'>    size_t              size;
-</span><span class='line'>
-</span><span class='line'>    // Initialize the flags so that, if sysctl fails for some bizarre 
-</span><span class='line'>    // reason, we get a predictable result.
-</span><span class='line'>
-</span><span class='line'>    info.kp_proc.p_flag = 0;
-</span><span class='line'>
-</span><span class='line'>    // Initialize mib, which tells sysctl the info we want, in this case
-</span><span class='line'>    // we're looking for information about a specific process ID.
-</span><span class='line'>
-</span><span class='line'>    mib[0] = CTL_KERN;
-</span><span class='line'>    mib[1] = KERN_PROC;
-</span><span class='line'>    mib[2] = KERN_PROC_PID;
-</span><span class='line'>    mib[3] = getpid();
-</span><span class='line'>
-</span><span class='line'>    // Call sysctl.
-</span><span class='line'>
-</span><span class='line'>    size = sizeof(info);
-</span><span class='line'>    junk = sysctl(mib, sizeof(mib) / sizeof(*mib), &info, &size, NULL, 0);
-</span><span class='line'>    assert(junk == 0);
-</span><span class='line'>
-</span><span class='line'>    // We're being debugged if the P_TRACED flag is set.
-</span><span class='line'>
-</span><span class='line'>    return ( (info.kp_proc.p_flag & P_TRACED) != 0 );
-</span><span class='line'>}</span></code></pre></td></tr></table></div></figure>
+<p>附：调用 [NSHashTable addObject:] 传入不同对象时的性能对比。</p>
 
+<p>10000个NSNumber：2ms</p>
+
+<p>10000个相同的NSDictionary：33000ms</p>
+
+<p>10000个key数量各不相同的NSDictionary：400ms</p>
 
 <p class='post-footer'>&nbsp;written by <a href='http://wison.me'>苹果君</a>&nbsp;posted at <a href='http://wison.me'>http://wison.me</a></br>&nbsp;版权声明：自由转载-非商用-非衍生-保持署名| <a href='http://creativecommons.org/licenses/by-nc-nd/3.0/deed.zh'>Creative Commons BY-NC-ND 3.0</a></p>
 
@@ -216,7 +178,7 @@
   
 
 
-<time datetime="2014-08-09T14:41:33+08:00" pubdate data-updated="true">Aug 9<span>th</span>, 2014</time>
+<time datetime="2014-08-10T01:46:40+08:00" pubdate data-updated="true">Aug 10<span>th</span>, 2014</time>
       
 
 <span class="categories">
@@ -230,7 +192,7 @@
     
       <div class="sharing">
   
-  <a href="//twitter.com/share" class="twitter-share-button" data-url="http://wison.me/blog/2014/08/09/pan-duan-zi-ji-de-ying-yong-shi-fou-bei-diao-shi-qi-dong/" data-via="" data-counturl="http://wison.me/blog/2014/08/09/pan-duan-zi-ji-de-ying-yong-shi-fou-bei-diao-shi-qi-dong/" >Tweet</a>
+  <a href="//twitter.com/share" class="twitter-share-button" data-url="http://wison.me/blog/2014/08/10/nshashtable-yin-qi-de-xing-neng-wen-ti/" data-via="" data-counturl="http://wison.me/blog/2014/08/10/nshashtable-yin-qi-de-xing-neng-wen-ti/" >Tweet</a>
   
   
   
@@ -239,10 +201,8 @@
     
     <p class="meta">
       
-        <a class="basic-alignment left" href="/blog/2014/06/01/cant-add-self-as-subview/" title="Previous Post: Can't add self as subview">&laquo; Can't add self as subview</a>
+        <a class="basic-alignment left" href="/blog/2014/08/09/ios-zeng-liang-geng-xin-ji-zhi-jie-shao/" title="Previous Post: iOS 增量更新机制介绍">&laquo; iOS 增量更新机制介绍</a>
       
-      
-        <a class="basic-alignment right" href="/blog/2014/08/09/ios-zeng-liang-geng-xin-ji-zhi-jie-shao/" title="Next Post: iOS 增量更新机制介绍">iOS 增量更新机制介绍 &raquo;</a>
       
     </p>
   </footer>
@@ -252,7 +212,7 @@
   <section>
     <h1>Comments</h1>
 	<div id="comments" aria-live="polite"><!-- Duoshuo Comment BEGIN -->
-<div class="ds-thread" data-title="判断自己的应用是否被调试启动"></div>
+<div class="ds-thread" data-title="NSHashTable 引起的性能问题"></div>
 <script type="text/javascript">
   var duoshuoQuery = {short_name:"wison"};
     (function() {

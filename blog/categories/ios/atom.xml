@@ -4,7 +4,7 @@
   <title><![CDATA[Category: iOS | 苹果君的博客]]></title>
   <link href="http://wison.me/blog/categories/ios/atom.xml" rel="self"/>
   <link href="http://wison.me/"/>
-  <updated>2014-08-09T20:12:25+08:00</updated>
+  <updated>2014-08-10T14:34:20+08:00</updated>
   <id>http://wison.me/</id>
   <author>
     <name><![CDATA[苹果君]]></name>
@@ -12,6 +12,69 @@
   </author>
   <generator uri="http://octopress.org/">Octopress</generator>
 
+  
+  <entry>
+    <title type="html"><![CDATA[NSHashTable 引起的性能问题]]></title>
+    <link href="http://wison.me/blog/2014/08/10/nshashtable-yin-qi-de-xing-neng-wen-ti/"/>
+    <updated>2014-08-10T01:46:40+08:00</updated>
+    <id>http://wison.me/blog/2014/08/10/nshashtable-yin-qi-de-xing-neng-wen-ti</id>
+    <content type="html"><![CDATA[<p>  本文介绍了在 Core Text 排版中，往 NSAttributeString 增加一个属性时引起的性能问题。</p>
+
+<!-- more -->
+
+
+<p>  在 Feeds 的 Core Text 排版中，NSAttributeString 中的某一小段的点击跳转行为是存储在 NSAttributeString 的属性中的。</p>
+
+<p>代码如下：</p>
+
+<p>  <img src="/images/2014-08-10-1-1.png" alt="image" /></p>
+
+<p>  QZTextLinkHelper 存储了点击跳转的相关信息，比如 url 跳转，昵称跳转等。</p>
+
+<p>  setLinkHelper 做为 NSAttributeString 的扩展方法，通过 [NSAttributeString addAttribute:value:range] 方法存储 linkHelper 的属性。</p>
+
+<p>  这里，linkHelper 的 linkAttributes 是一个 NSDictionary 对象。</p>
+
+<p>  好，问题出来了。我们发现，Feeds 排版变得异常耗时，滑动卡顿，profile 一下之后发现一个奇怪的热点：</p>
+
+<p>  <img src="/images/2014-08-10-1-2.jpeg" alt="image" /></p>
+
+<p>  [NSAttributeString addAttribute:value:range] 里面耗时很多，仔细看调用栈发现，内部的 attribute 都是通过 NSHashTable 存储的。</p>
+
+<p>  堆栈中出现的 [NSHashTable member:] 是取值操作，耗时主要在最后的比较两个 Dictionary 是否相等上面。</p>
+
+<p>  我们先重温一下哈希表取值的原理，见下图，红色部分代表耗时很长的步骤。</p>
+
+<p>  <img src="/images/2014-08-10-1-3.png" alt="image" /></p>
+
+<p>  根据上图，我们可以看出，当哈希表频繁对比两个对象是否相等的时候，说明哈希表的键冲突已经非常严重了。</p>
+
+<p>  于是转而把目光转向 NSDictionary 是怎么计算自己的哈希值的。</p>
+
+<p>  写了一个 demo 试了一下，发现 NSDictionary 的哈希值等于其 key 的个数，非常简单的一个计算，也非常容易冲突。</p>
+
+<p>  于是，解决方法就是在 addAttribute 的时候直接塞入 linkHelper 就可以了。
+  因为NSObject的哈希值默认是指针地址。</p>
+
+<p>总结：</p>
+
+<p>  [NSAttributeString addAttribute:value:range] 这个方法如果传入一个 NSDictionary 会非常耗时，原因有两个：</p>
+
+<ol>
+<li><p> NSAttributeString 以 HashTable 的方式存储 attribute，这使 attribute 的存取变得很复杂，我们必须确保传入的自定义 attribute 的哈希值不易冲突，或者保证其 isEqual 方法的效率。</p></li>
+<li><p> NSDictionary 的哈希值计算太过于简单了，基本不能跟 NSHashTable 这种容器共存。</p></li>
+</ol>
+
+
+<p>附：调用 [NSHashTable addObject:] 传入不同对象时的性能对比。</p>
+
+<p>10000个NSNumber：2ms</p>
+
+<p>10000个相同的NSDictionary：33000ms</p>
+
+<p>10000个key数量各不相同的NSDictionary：400ms</p>
+]]></content>
+  </entry>
   
   <entry>
     <title type="html"><![CDATA[iOS 增量更新机制介绍]]></title>
@@ -361,61 +424,6 @@ self.animating = NO;
 ```</p></li>
 </ul>
 
-]]></content>
-  </entry>
-  
-  <entry>
-    <title type="html"><![CDATA[[iOS] ViewController的生命周期及其加载View的步骤]]></title>
-    <link href="http://wison.me/blog/2012/03/03/ios-viewcontrollerde-sheng-ming-zhou-qi-ji-qi-jia-zai-viewde-bu-zou/"/>
-    <updated>2012-03-03T12:17:08+08:00</updated>
-    <id>http://wison.me/blog/2012/03/03/ios-viewcontrollerde-sheng-ming-zhou-qi-ji-qi-jia-zai-viewde-bu-zou</id>
-    <content type="html"><![CDATA[<p>首先先阐明ViewController的职责：对内管理与之关联的View，对外跟其他ViewController通信和协调。对于与之关联的View，ViewController总是在需要的时候才加载视图，并在不需要的时候卸载视图，所以也同时担当了管理应用资源的责任。理解ViewController的LifeCycle（生命周期），能够有效地管理应用资源。</p>
-
-<!-- more -->
-
-
-<h4><strong>ViewController的初始化：</strong></h4>
-
-<p>从Storyboards中加载的时候，会调用initWithCode，如果不存在则调用init。之后对里面的每个对象调用awakeFromNib方法。
-从内存中alloc出来的情况下，调init方法。
-ViewController查找与其关联的view，其顺序是：</p>
-
-<ol>
-<li><p>先判断子类是否重写了loadView，如果有直接调用。之后调viewDidLoad完成View的加载。</p></li>
-<li><p>如果是外部通过调用initWithNibName:bundle指定nib文件名的话，ViewController记载此nib来创建View。</p></li>
-<li><p>如果initWithNibName:bundle的name参数为nil，则ViewController会通过以下两个步骤找到与其关联的nib。
-A 如果类名包含Controller，例如ViewController的类名是MyViewController，则查找是否存在MyView.nib；
-B 找跟ViewController类名一样的文件，例如MyViewController，则查找是否存在MyViewController.nib。</p></li>
-<li><p>如果子类没有重写的loadView，则ViewController会从StroyBoards中找或者调用其默认的loadView，默认的loadView返回一个空白的UIView对象。
-注意第一步，ViewController是判断子类是否重写了loadView，而不是判断调用子类的loadView之后ViewController的View是否为空。就是说，如果子类重写了loadView的话，不管子类在loadView里面能否获取到View，ViewController都会直接调viewDidLoad完成View的加载。</p></li>
-</ol>
-
-
-<h4><strong> ViewController的卸载View的步骤：</strong></h4>
-
-<ol>
-<li>系统发出内存警告或者ViewController本身调用导致didReceiveMemoryWarning被调用</li>
-<li>如果此时view没有被加入到任何视图树上，则调用viewWillUnload之后释放View</li>
-<li>调用viewDidUnload</li>
-</ol>
-
-
-<p>注意view的Load和Unload不是成对调用的。
-因为viewWillUnload和viewDidUnload这两个函数只在内存警告时被调用。
-就算强制将viewController的view设为nil也不会触发。
-如果viewController从创建到销毁期间都没有内存警告，那么这两个函数将始终不会被调用。</p>
-
-<p>更新：
-iOS6已将viewWillUnload和viewDidUnload废弃，原因是UIKit在内存警告的时候已经不会自动释放无用的视图。
-详见 viewDidUnload 和 viewWillUnload 被废弃</p>
-
-<p>注意：
-由于Controller加载View时，会自动将一些View对象指向其对应的IBOutlet变量。
-所以当view被卸载时我们必须在viewDidUnload将这些变量release掉，ViewController不会自动做这件事。
-具体做法是将变量设置为空，（注意和dealloc中将变量release的区别）注意此时Controller的view属性是空的。
-在ViewController的生命周期的各个阶段，我们都有责任去适当的创建和销毁对象，具体各个阶段要做的事情，见官方文档的表Managing Memory Efficiently</p>
-
-<p>注：本文中的ViewController即视图控制器，根类是UIViewController。View是视图，根类是UIView。</p>
 ]]></content>
   </entry>
   
