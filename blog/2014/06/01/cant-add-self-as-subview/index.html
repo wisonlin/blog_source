@@ -113,7 +113,7 @@
 
 <p>另一个线索则是addSubView的参数不能是对象本身。一开始怀疑是addSubView传入self引起，于是用类似 [self addSubView:self] 的代码试了一下，的确是会崩溃的。</p>
 
-<p><img src="/images/2014-06-01-1.jpg" alt="image" /></p>
+<p><img src="/images/2014-06-01-2.jpg" alt="image" /></p>
 
 <p>但是堆栈跟外部用户上报的不一样，排除 [self addSubView:self] 直接导致崩溃的可能性。</p>
 
@@ -290,6 +290,10 @@
   <ul id="recent_posts">
     
       <li class="post">
+        <a href="/blog/2014/10/19/ios8-dao-hang-lan-kong-zhi-qi-heng-ping-ye-mian-dan-chu-shu-ping-ye-mian-de-shi-xian/">iOS8 导航栏控制器横屏页面弹出竖屏页面的实现</a>
+      </li>
+    
+      <li class="post">
         <a href="/blog/2014/08/10/nshashtable-yin-qi-de-xing-neng-wen-ti/">NSHashTable 引起的性能问题</a>
       </li>
     
@@ -305,17 +309,13 @@
         <a href="/blog/2014/06/01/cant-add-self-as-subview/">Can't Add Self as Subview</a>
       </li>
     
-      <li class="post">
-        <a href="/blog/2013/04/07/viewdidunload-he-viewwillunload-bei-fei-qi-zhi-hou-de-nei-cun-jing-gao-chu-li/">viewDidUnload 和 viewWillUnload 被废弃之后的内存警告处理</a>
-      </li>
-    
   </ul>
 </section>
 
 <section>
     <h1>文章分类</h1>
     <ul id="categories">
-        <li class='category'><a href='/blog/categories/ios/'>iOS (6)</a></li>
+        <li class='category'><a href='/blog/categories/ios/'>iOS (7)</a></li>
 
     </ul>
 </section>

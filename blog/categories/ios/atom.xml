@@ -4,7 +4,7 @@
   <title><![CDATA[Category: iOS | 苹果君的博客]]></title>
   <link href="http://wison.me/blog/categories/ios/atom.xml" rel="self"/>
   <link href="http://wison.me/"/>
-  <updated>2014-08-10T14:34:20+08:00</updated>
+  <updated>2014-10-19T21:42:31+08:00</updated>
   <id>http://wison.me/</id>
   <author>
     <name><![CDATA[苹果君]]></name>
@@ -12,6 +12,75 @@
   </author>
   <generator uri="http://octopress.org/">Octopress</generator>
 
+  
+  <entry>
+    <title type="html"><![CDATA[iOS8 导航栏控制器横屏页面弹出竖屏页面的实现]]></title>
+    <link href="http://wison.me/blog/2014/10/19/ios8-dao-hang-lan-kong-zhi-qi-heng-ping-ye-mian-dan-chu-shu-ping-ye-mian-de-shi-xian/"/>
+    <updated>2014-10-19T20:07:21+08:00</updated>
+    <id>http://wison.me/blog/2014/10/19/ios8-dao-hang-lan-kong-zhi-qi-heng-ping-ye-mian-dan-chu-shu-ping-ye-mian-de-shi-xian</id>
+    <content type="html"><![CDATA[<p>我们都知道，同一个导航栏控制器中，我们可以做到两个不同的页面有不同的方向。</p>
+
+<p>例如一个页面支持竖屏，我们 push 一个新的页面，支持横屏。</p>
+
+<p><img src="http://wison.me/images/2014-10-19-1.jpg" width="320" height="568" />
+<img src="http://wison.me/images/2014-10-19-2.png" width="320" height="568" /></p>
+
+<p>好，问题来了，第二个页面横屏，点击第二个页面的返回按钮，触发导航栏的 pop 逻辑，此时的动画应该是怎么样的？</p>
+
+<p>iOS 8 会有这样的一个动画：</p>
+
+<p><img src="http://wison.me/images/2014-10-19-3.png" width="434" height="593" /></p>
+
+<p>横屏页面会原封不动的，做一个类似pop的动画，箭头为横屏页面的动画方向。</p>
+
+<p>iOS 8 为了做到这个效果，选择对导航栏控制器的 pop 操作动刀。具体是这么做的：</p>
+
+<p>做 pop 动作的时候，导航栏控制器发现当前控制器是横屏，上一个控制器是竖屏的时候。</p>
+
+<p>那么会临时 present 一个当前页面的截图，由这个截图来模拟 pop 动画，而真正的 pop 操作不包含动画。</p>
+
+<p>流程如下：</p>
+
+<p><img src="/images/2014-10-19-4.png" alt="image" /></p>
+
+<p>简而言之，iOS 8 通过截图的方式，实现了横屏到竖屏的 pop 动画。</p>
+
+<p>所以，-[UINavigationController popViewControllerAnimated:] 这个接口的实现就会复杂很多。</p>
+
+<p>此时的 pop 操作，包含了 present一个页面，dismiss一个页面，以及真正的pop操作。</p>
+
+<p>代码大概应该是这样的：</p>
+
+<p>```objc
+&ndash; (UIViewController *)popViewControllerAnimated:(BOOL)animatd
+{</p>
+
+<pre><code>if (animated) {
+    if (self.topController.orientation == landscape &amp;&amp; self.preViewController.orientation == portrait) {
+        UISnapshotModalViewController *snapShot = [[UISnapshotModalViewController alloc] initWithViewController:self.topViewController];
+        [self presentViewController:snapShot animated:NO];
+        [self popViewControllerAnimated:NO];
+        [self dismissViewControllerWithPopAnimate];
+    }
+    [self doPopViewControllerAnimated];
+} else {
+    [self doPopViewController];
+}
+</code></pre>
+
+<p>}
+```</p>
+
+<p>以上，便是 iOS 8 在 横屏页面pop出竖屏页面的动画的实现。</p>
+
+<p>注意第七行代码，如果调用 popViewControllerAnimated 时如果传入的参数是 YES，
+那么 popViewControllerAnimated 会被调用两次！</p>
+
+<p>第一次是 popViewControllerAnimated:YES，第二次是 popViewControllerAnimated:NO 。</p>
+
+<p>重写或者替换 UINavigationController 的 popViewControllerAnimated: 时需要注意这里。</p>
+]]></content>
+  </entry>
   
   <entry>
     <title type="html"><![CDATA[NSHashTable 引起的性能问题]]></title>
@@ -231,7 +300,7 @@ return ( (info.kp_proc.p_flag &amp; P_TRACED) != 0 );
 
 <p>另一个线索则是addSubView的参数不能是对象本身。一开始怀疑是addSubView传入self引起，于是用类似 [self addSubView:self] 的代码试了一下，的确是会崩溃的。</p>
 
-<p><img src="/images/2014-06-01-1.jpg" alt="image" /></p>
+<p><img src="/images/2014-06-01-2.jpg" alt="image" /></p>
 
 <p>但是堆栈跟外部用户上报的不一样，排除 [self addSubView:self] 直接导致崩溃的可能性。</p>
 
@@ -309,121 +378,6 @@ self.animating = NO;
 
 
 <p>```</p>
-]]></content>
-  </entry>
-  
-  <entry>
-    <title type="html"><![CDATA[viewDidUnload 和 viewWillUnload 被废弃之后的内存警告处理]]></title>
-    <link href="http://wison.me/blog/2013/04/07/viewdidunload-he-viewwillunload-bei-fei-qi-zhi-hou-de-nei-cun-jing-gao-chu-li/"/>
-    <updated>2013-04-07T21:31:24+08:00</updated>
-    <id>http://wison.me/blog/2013/04/07/viewdidunload-he-viewwillunload-bei-fei-qi-zhi-hou-de-nei-cun-jing-gao-chu-li</id>
-    <content type="html"><![CDATA[<p>由于iOS6以上的UIKit不会在内存警告时自动释放视图，所以viewWillUnload和viewDidUnload将不再触发，因此，在iOS6上，开发者需要负责内存警告时将不用到的视图释放。</p>
-
-<!-- more -->
-
-
-<p>WWDC2012的视频有提到，具体代码如下：</p>
-
-<p>```objc
-&ndash; (void)didReceiveMemoryWarning {</p>
-
-<pre><code> if ([self.view window] == nil) {
-      self.view = nil;
-      self.otherSubView = nil;
- }
-</code></pre>
-
-<p>}
-```</p>
-
-<p>由于[self view]会引发视图的加载所以上述代码还是有潜在风险的，假如视图控制器在创建之后，在还没有加载视图时收到内存警告，那上面的代码就会触发视图的加载（调用了[self view]引起），反而加大了内存占用。所以应该先判断一下视图是否已被加载。</p>
-
-<p>```objc
-&ndash; (void)didReceiveMemoryWarning {</p>
-
-<pre><code> if ([self isViewLoaded] &amp;&amp; [self.view window] == nil) {
-      self.view = nil;
-      self.otherSubView = nil;
- }
-</code></pre>
-
-<p>}
-```</p>
-
-<p>Notification 的注册和反注册以及Delegate的设置和置空</p>
-
-<p>如果注册的通知跟界面相关，可以考虑将注册放入viewWillAppear并在viewWillDisappear中反注册。
-如果需要在视图加载时就注册，那就在viewDidLoad注册，dealloc和didReceiveMemoryWarning中根据视图是否加载过来进行反注册。
-注意viewDidUnload和viewDidLoad不是成对调用的，所以即使是iOS5或者以下的版本也不能在viewDidUnload里面反注册。参见[iOS] ViewController的生命周期及其加载View的步骤。</p>
-
-<p>综上所述，最佳实践的代码如下：</p>
-
-<p>```objc
-&ndash; (void)viewDidLoad
-{</p>
-
-<pre><code> self.subView.delegate = self;
- [[NSNotificationCenter defaultCenter] addObserver:self];
- self.viewCreatedByCode = [[UIView alloc] init];
-</code></pre>
-
-<p>}</p>
-
-<p>// 自定义函数viewUnloaded，其操作与viewDidLoad对称。
-&ndash; (void)viewUnloaded
-{</p>
-
-<pre><code> self.subView.delegate = nil;
- [[NSNotificationCenter defaultCenter] removeObserver:self];
- self.viewCreatedByCode = nil;
-</code></pre>
-
-<p>}</p>
-
-<ul>
-<li><p>(void)didReceiveMemoryWarning {
-   if ([self isViewLoaded] &amp;&amp; [self.view window] == nil) {
-        self.view = nil; // 需要开发者手动释放控制器的视图。
-        self.viewCreatedByNib = nil;  // 在xib中创建的视图也要手动清空。
-        [self viewUnloaded]; // 视图已被卸载，调用viewDIdLoad的反操作。
-   }
-}</p></li>
-<li><p>(void)dealloc
-{
-   if ([self isViewLoaded]) {
-        [self viewUnloaded]; // 如果视图已被加载，说明viewDidLoad被调用过，所以调用viewDIdLoad的反操作。
-   }
-}</p></li>
-<li><p>(void)viewDidLoad
-{
-   self.subView.delegate = self;
-   [[NSNotificationCenter defaultCenter] addObserver:self];
-   self.viewCreatedByCode = [[UIView alloc] init];
-}</p></li>
-<li><p>(void)viewDidUnload
-{
-   self.subView.delegate = nil;
-   [[NSNotificationCenter defaultCenter] removeObserver:self];
-   self.viewCreatedByCode = nil;
-}</p></li>
-<li><p>(void)didReceiveMemoryWarning {
-   if ([self isViewLoaded] &amp;&amp; [self.view window] == nil) {
-       [self.photoCache removeAllObjects];
-       if (>=iOS6) {
-            self.view = nil;
-            [self viewDidUnload];
-       }
-   }
-}</p></li>
-<li><p>(void)dealloc
-{
-   if ([self isViewLoaded]) {
-       [[NSNotificationCenter defaultCenter] removeObserver:self];
-   }
-}
-```</p></li>
-</ul>
-
 ]]></content>
   </entry>
   
