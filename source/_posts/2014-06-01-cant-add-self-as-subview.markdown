@@ -20,7 +20,7 @@ iOS7刚发布的时候，总是出现这个 Can't add self as subview  的崩溃
 
 另一个线索则是addSubView的参数不能是对象本身。一开始怀疑是addSubView传入self引起，于是用类似 [self addSubView:self] 的代码试了一下，的确是会崩溃的。
 
-![image](/images/2014-06-01-1.jpg)
+![image](/images/2014-06-01-2.jpg)
 
 但是堆栈跟外部用户上报的不一样，排除 [self addSubView:self] 直接导致崩溃的可能性。
 
