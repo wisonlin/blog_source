@@ -4,7 +4,7 @@
   <title><![CDATA[苹果君的博客]]></title>
   <link href="http://wison.me/atom.xml" rel="self"/>
   <link href="http://wison.me/"/>
-  <updated>2014-10-19T21:45:57+08:00</updated>
+  <updated>2014-10-19T21:48:02+08:00</updated>
   <id>http://wison.me/</id>
   <author>
     <name><![CDATA[苹果君]]></name>
@@ -24,6 +24,9 @@
 
 <p>本文介绍了这种情况下，iOS 8 做 pop 动画的实现。</p>
 
+<!-- more -->
+
+
 <p>例子如下：</p>
 
 <p><img src="http://wison.me/images/2014-10-19-1.jpg" width="320" height="568" />
@@ -39,7 +42,7 @@
 
 <p>iOS 8 为了做到这个效果，选择对导航栏控制器的 pop 操作动刀。具体是这么做的：</p>
 
-<p>做 pop 动作的时候，导航栏控制器发现当前控制器是横屏，上一个控制器是竖屏的时候。</p>
+<p>做 pop 动作的时候，导航控制器发现当前控制器是横屏，上一个控制器是竖屏的时候。</p>
 
 <p>那么会临时 present 一个当前页面的截图，由这个截图来模拟 pop 动画，而真正的 pop 操作不包含动画。</p>
 
