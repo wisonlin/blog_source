@@ -4,7 +4,7 @@
   <title><![CDATA[苹果君的博客]]></title>
   <link href="http://wison.me/atom.xml" rel="self"/>
   <link href="http://wison.me/"/>
-  <updated>2014-10-19T21:42:31+08:00</updated>
+  <updated>2014-10-19T21:45:57+08:00</updated>
   <id>http://wison.me/</id>
   <author>
     <name><![CDATA[苹果君]]></name>
@@ -14,13 +14,17 @@
 
   
   <entry>
-    <title type="html"><![CDATA[iOS8 导航栏控制器横屏页面弹出竖屏页面的实现]]></title>
+    <title type="html"><![CDATA[iOS8 导航控制器横屏页面弹出竖屏页面的实现]]></title>
     <link href="http://wison.me/blog/2014/10/19/ios8-dao-hang-lan-kong-zhi-qi-heng-ping-ye-mian-dan-chu-shu-ping-ye-mian-de-shi-xian/"/>
     <updated>2014-10-19T20:07:21+08:00</updated>
     <id>http://wison.me/blog/2014/10/19/ios8-dao-hang-lan-kong-zhi-qi-heng-ping-ye-mian-dan-chu-shu-ping-ye-mian-de-shi-xian</id>
-    <content type="html"><![CDATA[<p>我们都知道，同一个导航栏控制器中，我们可以做到两个不同的页面有不同的方向。</p>
+    <content type="html"><![CDATA[<p>我们都知道，同一个导航控制器中，我们可以做到两个不同的页面有不同的方向。</p>
 
 <p>例如一个页面支持竖屏，我们 push 一个新的页面，支持横屏。</p>
+
+<p>本文介绍了这种情况下，iOS 8 做 pop 动画的实现。</p>
+
+<p>例子如下：</p>
 
 <p><img src="http://wison.me/images/2014-10-19-1.jpg" width="320" height="568" />
 <img src="http://wison.me/images/2014-10-19-2.png" width="320" height="568" /></p>
