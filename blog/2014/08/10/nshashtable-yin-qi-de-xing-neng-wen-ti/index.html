@@ -1,0 +1,291 @@
+
+<!DOCTYPE html>
+<!--[if IEMobile 7 ]><html class="no-js iem7"><![endif]-->
+<!--[if lt IE 9]><html class="no-js lte-ie8"><![endif]-->
+<!--[if (gt IE 8)|(gt IEMobile 7)|!(IEMobile)|!(IE)]><!--><html class="no-js" lang="en"><!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <title>NSHashTable 引起的性能问题 - 苹果君的博客</title>
+  <meta name="author" content="苹果君">
+
+  
+  <meta name="description" content="本文介绍了在 Core Text 排版中，往 NSAttributeString 增加一个属性时引起的性能问题。 在 Feeds 的 Core Text 排版中，NSAttributeString 中的某一小段的点击跳转行为是存储在 NSAttributeString 的属性中的。 代码如下： &hellip;">
+  
+
+  <!-- http://t.co/dKP3o1e -->
+  <meta name="HandheldFriendly" content="True">
+  <meta name="MobileOptimized" content="320">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  
+  <link rel="canonical" href="http://wison.me/blog/2014/08/10/nshashtable-yin-qi-de-xing-neng-wen-ti">
+  <link href="/favicon.png" rel="icon">
+  <link href="/stylesheets/screen.css" media="screen, projection" rel="stylesheet" type="text/css">
+  <link href="/atom.xml" rel="alternate" title="苹果君的博客" type="application/atom+xml">
+  <script src="/javascripts/modernizr-2.0.js"></script>
+  <!--script src="//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"></script-->
+  <script src="/jquery.min.js"></script>
+  <script>!window.jQuery && document.write(unescape('%3Cscript src="./javascripts/libs/jquery.min.js"%3E%3C/script%3E'))</script>
+  <script src="/javascripts/octopress.js" type="text/javascript"></script>
+  <!--Fonts from Google"s Web font directory at http://google.com/webfonts -->
+<!--link href="//fonts.googleapis.com/css?family=PT+Serif:regular,italic,bold,bolditalic" rel="stylesheet" type="text/css"-->
+<!--link href="//fonts.googleapis.com/css?family=PT+Sans:regular,italic,bold,bolditalic" rel="stylesheet" type="text/css"-->
+
+<link href="/stylesheets/google-fonts.css" rel="stylesheet" type="text/css">
+
+  
+
+</head>
+
+<body   >
+  <header role="banner"><hgroup>
+  <h1><a href="/">苹果君的博客</a></h1>
+  
+    <h2>Happy Coding, Happy Living</h2>
+  
+</hgroup>
+
+</header>
+  <nav role="navigation"><ul class="subscription" data-subscription="rss">
+  <li><a href="/atom.xml" rel="subscribe-rss" title="subscribe via RSS">RSS</a></li>
+  
+</ul>
+  
+<form action="https://www.google.com/search" method="get">
+  <fieldset role="search">
+    <input type="hidden" name="q" value="site:wison.me" />
+    <input class="search" type="text" name="q" results="0" placeholder="Search"/>
+  </fieldset>
+</form>
+  
+<ul class="main-navigation">
+  <li><a href="/">首页</a></li>
+  <li><a href="/blog/archives">所有文章</a></li>
+  <li><a href="/about">关于</a></li>
+</ul>
+
+</nav>
+  <div id="main">
+    <div id="content">
+      <div>
+<article class="hentry" role="article">
+  
+  <header>
+    
+      <h1 class="entry-title">NSHashTable 引起的性能问题</h1>
+    
+    
+      <p class="meta">
+        
+
+
+
+
+
+
+
+
+  
+
+
+<time datetime="2014-08-10T01:46:40+08:00" pubdate data-updated="true">Aug 10<span>th</span>, 2014</time>
+        
+		
+		   | <a href="#comments">Comments</a>
+	    
+      </p>
+    
+  </header>
+
+
+<div class="entry-content"><p>  本文介绍了在 Core Text 排版中，往 NSAttributeString 增加一个属性时引起的性能问题。</p>
+
+<!-- more -->
+
+
+<p>  在 Feeds 的 Core Text 排版中，NSAttributeString 中的某一小段的点击跳转行为是存储在 NSAttributeString 的属性中的。</p>
+
+<p>代码如下：</p>
+
+<p>  <img src="/images/2014-08-10-1-1.png" alt="image" /></p>
+
+<p>  QZTextLinkHelper 存储了点击跳转的相关信息，比如 url 跳转，昵称跳转等。</p>
+
+<p>  setLinkHelper 做为 NSAttributeString 的扩展方法，通过 [NSAttributeString addAttribute:value:range] 方法存储 linkHelper 的属性。</p>
+
+<p>  这里，linkHelper 的 linkAttributes 是一个 NSDictionary 对象。</p>
+
+<p>  好，问题出来了。我们发现，Feeds 排版变得异常耗时，滑动卡顿，profile 一下之后发现一个奇怪的热点：</p>
+
+<p>  <img src="/images/2014-08-10-1-2.jpeg" alt="image" /></p>
+
+<p>  [NSAttributeString addAttribute:value:range] 里面耗时很多，仔细看调用栈发现，内部的 attribute 都是通过 NSHashTable 存储的。</p>
+
+<p>  堆栈中出现的 [NSHashTable member:] 是取值操作，耗时主要在最后的比较两个 Dictionary 是否相等上面。</p>
+
+<p>  我们先重温一下哈希表取值的原理，见下图，红色部分代表耗时很长的步骤。</p>
+
+<p>  <img src="/images/2014-08-10-1-3.png" alt="image" /></p>
+
+<p>  根据上图，我们可以看出，当哈希表频繁对比两个对象是否相等的时候，说明哈希表的键冲突已经非常严重了。</p>
+
+<p>  于是转而把目光转向 NSDictionary 是怎么计算自己的哈希值的。</p>
+
+<p>  写了一个 demo 试了一下，发现 NSDictionary 的哈希值等于其 key 的个数，非常简单的一个计算，也非常容易冲突。</p>
+
+<p>  于是，解决方法就是在 addAttribute 的时候直接塞入 linkHelper 就可以了。
+  因为NSObject的哈希值默认是指针地址。</p>
+
+<p>总结：</p>
+
+<p>  [NSAttributeString addAttribute:value:range] 这个方法如果传入一个 NSDictionary 会非常耗时，原因有两个：</p>
+
+<ol>
+<li><p> NSAttributeString 以 HashTable 的方式存储 attribute，这使 attribute 的存取变得很复杂，我们必须确保传入的自定义 attribute 的哈希值不易冲突，或者保证其 isEqual 方法的效率。</p></li>
+<li><p> NSDictionary 的哈希值计算太过于简单了，基本不能跟 NSHashTable 这种容器共存。</p></li>
+</ol>
+
+
+<p>附：调用 [NSHashTable addObject:] 传入不同对象时的性能对比。</p>
+
+<p>10000个NSNumber：2ms</p>
+
+<p>10000个相同的NSDictionary：33000ms</p>
+
+<p>10000个key数量各不相同的NSDictionary：400ms</p>
+
+<p class='post-footer'>&nbsp;written by <a href='http://wison.me'>苹果君</a>&nbsp;posted at <a href='http://wison.me'>http://wison.me</a></br>&nbsp;版权声明：自由转载-非商用-非衍生-保持署名| <a href='http://creativecommons.org/licenses/by-nc-nd/3.0/deed.zh'>Creative Commons BY-NC-ND 3.0</a></p>
+
+</div>
+
+
+  <footer>
+    <p class="meta">
+      
+  
+
+<span class="byline author vcard">Posted by <span class="fn">苹果君</span></span>
+
+      
+
+
+
+
+
+
+
+
+  
+
+
+<time datetime="2014-08-10T01:46:40+08:00" pubdate data-updated="true">Aug 10<span>th</span>, 2014</time>
+      
+
+<span class="categories">
+  
+    <a class='category' href='/blog/categories/ios/'>iOS</a>
+  
+</span>
+
+
+    </p>
+    
+      <div class="sharing">
+  
+  <a href="//twitter.com/share" class="twitter-share-button" data-url="http://wison.me/blog/2014/08/10/nshashtable-yin-qi-de-xing-neng-wen-ti/" data-via="" data-counturl="http://wison.me/blog/2014/08/10/nshashtable-yin-qi-de-xing-neng-wen-ti/" >Tweet</a>
+  
+  
+  
+</div>
+
+    
+    <p class="meta">
+      
+        <a class="basic-alignment left" href="/blog/2014/08/09/ios-zeng-liang-geng-xin-ji-zhi-jie-shao/" title="Previous Post: iOS 增量更新机制介绍">&laquo; iOS 增量更新机制介绍</a>
+      
+      
+        <a class="basic-alignment right" href="/blog/2014/10/19/ios8-dao-hang-lan-kong-zhi-qi-heng-ping-ye-mian-dan-chu-shu-ping-ye-mian-de-shi-xian/" title="Next Post: iOS8 导航控制器横屏页面弹出竖屏页面的实现">iOS8 导航控制器横屏页面弹出竖屏页面的实现 &raquo;</a>
+      
+    </p>
+  </footer>
+</article>
+
+
+  <section>
+    <h1>Comments</h1>
+	<div id="comments" aria-live="polite"><!-- Duoshuo Comment BEGIN -->
+<div class="ds-thread" data-title="NSHashTable 引起的性能问题"></div>
+<script type="text/javascript">
+  var duoshuoQuery = {short_name:"wison"};
+    (function() {
+		    var ds = document.createElement('script');
+			    ds.type = 'text/javascript';ds.async = true;
+				    ds.src = 'http://static.duoshuo.com/embed.js';
+					    ds.charset = 'UTF-8';
+						    (document.getElementsByTagName('head')[0] 
+							    || document.getElementsByTagName('body')[0]).appendChild(ds);
+								  })();
+								  </script>
+								  <!-- Duoshuo Comment END -->
+</div>
+  </section>
+
+</div>
+
+<aside class="sidebar">
+  
+    <section>
+  <h1>Recent Posts</h1>
+  <ul id="recent_posts">
+    
+      <li class="post">
+        <a href="/blog/2014/10/19/ios8-zhuan-ping-bug-hui-zong/">iOS8 转屏 Bug 汇总</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2014/10/19/ios8-dao-hang-lan-kong-zhi-qi-heng-ping-ye-mian-dan-chu-shu-ping-ye-mian-de-shi-xian/">iOS8 导航控制器横屏页面弹出竖屏页面的实现</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2014/08/10/nshashtable-yin-qi-de-xing-neng-wen-ti/">NSHashTable 引起的性能问题</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2014/08/09/ios-zeng-liang-geng-xin-ji-zhi-jie-shao/">iOS 增量更新机制介绍</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2014/08/09/pan-duan-zi-ji-de-ying-yong-shi-fou-bei-diao-shi-qi-dong/">判断自己的应用是否被调试启动</a>
+      </li>
+    
+  </ul>
+</section>
+
+<section>
+    <h1>文章分类</h1>
+    <ul id="categories">
+        <li class='category'><a href='/blog/categories/ios/'>iOS (8)</a></li>
+
+    </ul>
+</section>
+  
+</aside>
+
+
+    </div>
+  </div>
+  <footer role="contentinfo"><p>
+  Copyright &copy; 2014 - 苹果君 -
+  <span class="credit">Powered by <a href="http://octopress.org">Octopress</a></span>
+  <script type="text/javascript">var cnzz_protocol = (("https:" == document.location.protocol) ? " https://" : " http://");document.write(unescape("%3Cspan id='cnzz_stat_icon_1252908829'%3E%3C/span%3E%3Cscript src='" + cnzz_protocol + "s19.cnzz.com/z_stat.php%3Fid%3D1252908829%26show%3Dpic' type='text/javascript'%3E%3C/script%3E"));</script>
+</p>
+
+</footer>
+  
+
+
+
+
+
+</body>
+</html>

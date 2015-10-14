@@ -1,0 +1,376 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+
+  <title><![CDATA[Category: iOS | 苹果君的博客]]></title>
+  <link href="http://wison.me/blog/categories/ios/atom.xml" rel="self"/>
+  <link href="http://wison.me/"/>
+  <updated>2014-10-27T23:25:39+08:00</updated>
+  <id>http://wison.me/</id>
+  <author>
+    <name><![CDATA[苹果君]]></name>
+    <email><![CDATA[460760604@qq.com]]></email>
+  </author>
+  <generator uri="http://octopress.org/">Octopress</generator>
+
+  
+  <entry>
+    <title type="html"><![CDATA[iOS8 转屏 Bug 汇总]]></title>
+    <link href="http://wison.me/blog/2014/10/19/ios8-zhuan-ping-bug-hui-zong/"/>
+    <updated>2014-10-19T22:53:36+08:00</updated>
+    <id>http://wison.me/blog/2014/10/19/ios8-zhuan-ping-bug-hui-zong</id>
+    <content type="html"><![CDATA[<p>iOS8 对页面的旋转机制做了一些改变，这些改动也带来了不少问题。<br/>
+本文介绍三个已经发现的问题，并尝试给出解决方案。</p>
+
+<!-- more -->
+
+
+<h3>问题一：页面的旋转动画执行过程中dismiss，会让底下的不可旋转页面发生旋转。</h3>
+
+<p>先看一下这个bug的Qzone截图：</p>
+
+<p><img src="http://wison.me/images/2014-10-20-1.png" width="568" height="320" /></p>
+
+<p>“动态” 这个页面，是不支持横屏的，但是却还是被系统旋转了。<br/>
+此时，已经按照屏幕宽度创建好的视图自然不能拓展到充满屏幕。
+接下来我们讨论一下重现的步骤。</p>
+
+<ol>
+<li>首先，准备阶段，手机不锁定屏幕方向。页面A不可旋转，页面B可旋转，手机竖屏状态下，A present B。</li>
+<li>接着，复现阶段。dismiss B，同时旋转手机到横屏。</li>
+<li>最后，看现象。页面B发生了旋转，同时页面B消失，A页面也发生了旋转。</li>
+</ol>
+
+
+<p>如果没有出现问题，可能要多试几次，这里的同时比较难，<strong>本质是要让页面发生旋转动画的时候，触发dismiss逻辑。</strong></p>
+
+<p>以下是苹果自家App，Apple Store的截图，10月6日的版本，该版本的改动是兼容iOS8 。</p>
+
+<p><img src="http://wison.me/images/2014-10-20-2.png" width="568" height="320" /></p>
+
+<p>以下是手机QQ 10月8日更新的版本。</p>
+
+<p><img src="http://wison.me/images/2014-10-20-3.jpg" width="568" height="320" /></p>
+
+<p>影响面:<br/>
+在用户那里出现这个bug的概率有点低，但是还是存在一定量。<br/>
+并且一旦出现，所有假设自己一定在竖屏状态下工作的页面都会出问题。<br/>
+因为此时页面的宽度其实是手机屏幕的高度。假如某一些控件创建时依赖了页面的宽度，那么可能回到竖屏的时候表现异常，由于假设了一定在竖屏状态下工作，所以该页面也当然不会处理转屏的情况。</p>
+
+<p>解决方法:<br/>
+简而言之，<strong>dismiss的时候，让页面不可旋转；页面旋转的时候，不让用户触发 dismiss。就可以了。</strong></p>
+
+<h3>问题二：屏幕横屏时，UIScreen 的宽高会发生变化</h3>
+
+<p>iOS 8 已经没有屏幕旋转的概念，只有屏幕大小变化的概念，详细看 WWDC 2014。<br/>
+也就是说，在 iOS 8 上，当页面横屏的时候，不会收到屏幕旋转的通知，而是会收到屏幕大小改变的通知。<br/>
+并且，此时 UIScreen 和 UIWindow 的宽高都会发生变化。<br/>
+以下是 iOS 8 横屏时的视图树：</p>
+
+<p>```
+&lt;UIWindow: 0x178d2320; frame = (0 0; 568 320);>
+   | &lt;UITransitionView: 0x17fe3180; frame = (0 0; 568 320);>
+   |    | &lt;UILayoutContainerView: 0x17fd6280; frame = (0 0; 568 320);>
+   |    |    | &lt;UINavigationTransitionView: 0x17fdb4f0; frame = (0 0; 568 320);></p>
+
+<p>以及此时的屏幕大小如下： <br/>
+&lt;UIScreen: 0x15863810; bounds = { {0, 0}, {568, 320} }; mode = &lt;UIScreenMode: 0x147be4a0; size = 640.000000 x 1136.000000>>
+```</p>
+
+<p>注意宽高已经相反了，对比同样情况下的 iOS 7 的视图树：</p>
+
+<p>```
+&lt;UIWindow: 0x79e59460; frame = (0 0; 320 568);>
+   | &lt;UILayoutContainerView: 0x7b18e140; frame = (0 0; 320 568); transform = [0, 1, -1, 0, 0, 0]; >
+   |    | &lt;UINavigationTransitionView: 0x7b17b390; frame = (0 0; 568 320); ></p>
+
+<p>&lt;UIScreen: 0x79e48cd0; bounds = { {0, 0}, {320, 568} }; mode = &lt;UIScreenMode: 0x79fa0520; size = 640.000000 x 1136.000000>>
+```</p>
+
+<p>仔细看看会发现，iOS 7 的屏幕没有变化，通过中间的 ContainerView 加上 transform 来达到下层视图的旋转。</p>
+
+<p>这种改变会带来什么样的后果的呢？<br/>
+答案是，所有依赖屏幕宽高来创建的视图或者布局信息都会出问题，因为宽度随时都会变化。<br/>
+截一个Qzone的Feed图片：</p>
+
+<p><img src="http://wison.me/images/2014-10-20-4.png" width="320" height="568" />
+<img src="http://wison.me/images/2014-10-20-5.png" width="320" height="568" /></p>
+
+<p>这里的文字排版，超出了屏幕的宽。<br/>
+重现步骤如下：弱网络，上拉加载更多时，随便点击一张图片进图片浮层并横屏。<br/>
+等待后面 Feed 接收完毕并进行排版，此时排版取的宽度，会是手机屏幕的高度。<br/>
+排版完成后，从浮层回来，Feed 内容就超出屏幕的宽度了。<br/>
+并且这个错误的排版会一直保持，除非触发再次排版。<br/>
+解决方法是，取宽度的时候不要直接去屏幕宽度，而是 <strong> 先判断屏幕方向，竖屏去宽度，横屏取高度。</strong></p>
+
+<h3>问题三：同一个导航栏中横屏界面 pop 出竖屏界面的时候，动画异常。</h3>
+
+<p>第三个问题比较复杂，iOS8改了横屏界面 pop 竖屏界面的动画，跟iOS 7 有点不同。<br/>
+具体实现移步 <a href="http://wison.me/blog/2014/10/19/ios8-dao-hang-lan-kong-zhi-qi-heng-ping-ye-mian-dan-chu-shu-ping-ye-mian-de-shi-xian/">iOS8 导航栏横屏页面弹出竖屏页面的实现</a>，
+目前还没有找到好的解决方法，直接换成 present 规避之。<br/>
+或者可以尝试一下自定义动画，有兴趣的可以尝试一下。</p>
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[iOS8 导航控制器横屏页面弹出竖屏页面的实现]]></title>
+    <link href="http://wison.me/blog/2014/10/19/ios8-dao-hang-lan-kong-zhi-qi-heng-ping-ye-mian-dan-chu-shu-ping-ye-mian-de-shi-xian/"/>
+    <updated>2014-10-19T20:07:21+08:00</updated>
+    <id>http://wison.me/blog/2014/10/19/ios8-dao-hang-lan-kong-zhi-qi-heng-ping-ye-mian-dan-chu-shu-ping-ye-mian-de-shi-xian</id>
+    <content type="html"><![CDATA[<p>我们都知道，同一个导航控制器中，我们可以做到两个不同的页面有不同的方向。
+例如一个页面支持竖屏，我们 push 一个新的页面，支持横屏。
+本文介绍了这种情况下，iOS 8 做 pop 动画的实现。</p>
+
+<!-- more -->
+
+
+<p>例子如下：</p>
+
+<p><img src="http://wison.me/images/2014-10-19-1.jpg" width="320" height="568" />
+<img src="http://wison.me/images/2014-10-19-2.png" width="320" height="568" /></p>
+
+<p>好，问题来了，第二个页面横屏，点击第二个页面的返回按钮，触发导航栏的 pop 逻辑，此时的动画应该是怎么样的？</p>
+
+<p>iOS 8 会有这样的一个动画：</p>
+
+<p><img src="http://wison.me/images/2014-10-19-3.png" width="434" height="593" /></p>
+
+<p>横屏页面会原封不动的，做一个类似pop的动画，箭头为横屏页面的动画方向。
+iOS 8 为了做到这个效果，选择对导航控制器的 pop 操作动刀。具体是这么做的：
+做 pop 动作的时候，导航控制器发现当前控制器是横屏，上一个控制器是竖屏的时候。
+那么会临时 present 一个当前页面的截图，由这个截图来模拟 pop 动画，而真正的 pop 操作不包含动画。
+流程如下：</p>
+
+<p><img src="/images/2014-10-19-4.png" alt="image" /></p>
+
+<p>简而言之，iOS 8 通过截图的方式，实现了横屏到竖屏的 pop 动画。
+所以，-[UINavigationController popViewControllerAnimated:] 这个接口的实现就会复杂很多。
+此时的 pop 操作，包含了 present一个页面，dismiss一个页面，以及真正的pop操作。
+代码大概应该是这样的：</p>
+
+<p>```objc
+&ndash; (UIViewController *)popViewControllerAnimated:(BOOL)animatd
+{</p>
+
+<pre><code>if (animated) {
+    if (self.topController.orientation == landscape &amp;&amp; self.preViewController.orientation == portrait) {
+        UISnapshotModalViewController *snapShot = [[UISnapshotModalViewController alloc] initWithViewController:self.topViewController];
+        [self presentViewController:snapShot animated:NO];
+        [self popViewControllerAnimated:NO];
+        [self dismissViewControllerWithPopAnimate];
+    }
+    [self doPopViewControllerAnimated];
+} else {
+    [self doPopViewController];
+}
+</code></pre>
+
+<p>}
+```</p>
+
+<p>以上，便是 iOS 8 在 横屏页面 pop 出竖屏页面的动画的实现。
+注意第七行代码，如果调用 popViewControllerAnimated 时如果传入的参数是 YES，
+那么 popViewControllerAnimated 会被调用两次！
+第一次是 popViewControllerAnimated:YES，第二次是 popViewControllerAnimated:NO 。
+重写或者替换 UINavigationController 的 popViewControllerAnimated: 时需要注意这里。</p>
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[NSHashTable 引起的性能问题]]></title>
+    <link href="http://wison.me/blog/2014/08/10/nshashtable-yin-qi-de-xing-neng-wen-ti/"/>
+    <updated>2014-08-10T01:46:40+08:00</updated>
+    <id>http://wison.me/blog/2014/08/10/nshashtable-yin-qi-de-xing-neng-wen-ti</id>
+    <content type="html"><![CDATA[<p>  本文介绍了在 Core Text 排版中，往 NSAttributeString 增加一个属性时引起的性能问题。</p>
+
+<!-- more -->
+
+
+<p>  在 Feeds 的 Core Text 排版中，NSAttributeString 中的某一小段的点击跳转行为是存储在 NSAttributeString 的属性中的。</p>
+
+<p>代码如下：</p>
+
+<p>  <img src="/images/2014-08-10-1-1.png" alt="image" /></p>
+
+<p>  QZTextLinkHelper 存储了点击跳转的相关信息，比如 url 跳转，昵称跳转等。</p>
+
+<p>  setLinkHelper 做为 NSAttributeString 的扩展方法，通过 [NSAttributeString addAttribute:value:range] 方法存储 linkHelper 的属性。</p>
+
+<p>  这里，linkHelper 的 linkAttributes 是一个 NSDictionary 对象。</p>
+
+<p>  好，问题出来了。我们发现，Feeds 排版变得异常耗时，滑动卡顿，profile 一下之后发现一个奇怪的热点：</p>
+
+<p>  <img src="/images/2014-08-10-1-2.jpeg" alt="image" /></p>
+
+<p>  [NSAttributeString addAttribute:value:range] 里面耗时很多，仔细看调用栈发现，内部的 attribute 都是通过 NSHashTable 存储的。</p>
+
+<p>  堆栈中出现的 [NSHashTable member:] 是取值操作，耗时主要在最后的比较两个 Dictionary 是否相等上面。</p>
+
+<p>  我们先重温一下哈希表取值的原理，见下图，红色部分代表耗时很长的步骤。</p>
+
+<p>  <img src="/images/2014-08-10-1-3.png" alt="image" /></p>
+
+<p>  根据上图，我们可以看出，当哈希表频繁对比两个对象是否相等的时候，说明哈希表的键冲突已经非常严重了。</p>
+
+<p>  于是转而把目光转向 NSDictionary 是怎么计算自己的哈希值的。</p>
+
+<p>  写了一个 demo 试了一下，发现 NSDictionary 的哈希值等于其 key 的个数，非常简单的一个计算，也非常容易冲突。</p>
+
+<p>  于是，解决方法就是在 addAttribute 的时候直接塞入 linkHelper 就可以了。
+  因为NSObject的哈希值默认是指针地址。</p>
+
+<p>总结：</p>
+
+<p>  [NSAttributeString addAttribute:value:range] 这个方法如果传入一个 NSDictionary 会非常耗时，原因有两个：</p>
+
+<ol>
+<li><p> NSAttributeString 以 HashTable 的方式存储 attribute，这使 attribute 的存取变得很复杂，我们必须确保传入的自定义 attribute 的哈希值不易冲突，或者保证其 isEqual 方法的效率。</p></li>
+<li><p> NSDictionary 的哈希值计算太过于简单了，基本不能跟 NSHashTable 这种容器共存。</p></li>
+</ol>
+
+
+<p>附：调用 [NSHashTable addObject:] 传入不同对象时的性能对比。</p>
+
+<p>10000个NSNumber：2ms</p>
+
+<p>10000个相同的NSDictionary：33000ms</p>
+
+<p>10000个key数量各不相同的NSDictionary：400ms</p>
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[iOS 增量更新机制介绍]]></title>
+    <link href="http://wison.me/blog/2014/08/09/ios-zeng-liang-geng-xin-ji-zhi-jie-shao/"/>
+    <updated>2014-08-09T19:41:08+08:00</updated>
+    <id>http://wison.me/blog/2014/08/09/ios-zeng-liang-geng-xin-ji-zhi-jie-shao</id>
+    <content type="html"><![CDATA[<p>  从 iOS6 开始，iOS 引入了增量更新(delta update)，App Store 对应用的新版本更新的提交，会自动生成增量更新包。
+  用户在更新应用的新版本的时候，只会下载差异部分，这样就加快了下载速度，也同时提升了安装速度。
+  本文介绍了 iOS 的增量更新机制，以及优化应用安装包大小时应注意的问题。</p>
+
+<!-- more -->
+
+
+<h3>差异化更新的机制：</h3>
+
+<p>  自动生成更新包的时候，App Store 将会比较应用的每一个老版本和新版本的差异，针对每一个旧版本，生成一个更新包，每一个更新包里面，只包含了两个版本之间有变化的文件，而没有变化的文件则不包含。应用更新包中除了有差异的内容之外，还包括了一个简单的命令脚本，存储增加，更新，删除某个文件的命令，安装的时候将被执行。
+  差异化更新的这个过程，对于开发者和用户都是透明的，并且，用更新包更新应用和直接下载完整包安装没有任何区别。</p>
+
+<h3>差异化更新的好处：</h3>
+
+<p>  有了差异化更新之后，更新包将会比应用的完整安装包小很多，并且安装也将更快。
+  我们都知道，蜂窝网络下，应用的安装包超过某一个大小的时候，将不支持下载。但是，如果更新包小于这个限制大小的话，大型应用也可以在蜂窝网络下更新。</p>
+
+<h3>针对这样的机制，有两个建议，可以优化用户更新应用的速度：</h3>
+
+<ol>
+<li> 不要对文件进行不必要的更改，可以在发布之前用文件比较工具比较一下。</li>
+<li> 如果可能，将频繁变化的文件和其他文件分开，减少差异更新包的大小，以及加快安装速度。</li>
+</ol>
+
+
+<p>  在 iOS 6 上，差异更新的粒度是文件级，就是说文件一旦有变化，将会被完全放入更新包中，比如有个10MB的文件，只改动了里面的一点点内容，那么整个10MB的文件都会被塞进更新包中下发给用户。</p>
+
+<p>  但是，在 iOS 7 以后，差异更新的粒度优化成了字节级的比较，更新包中只会包含文件之间的差异部分，而不是整个文件。这样的话，如果文件之间只有小小的差异的时候，更新包将会比之前小很多，但是同时也降低了安装的速度。
+  所以，即使是在iOS 7之后，以上的两条建议依然很重要。在 iOS 7 以上的系统，减少文件改动，和隔离频繁更改的文件，不仅会减小更新包大小，也会提高安装速度。</p>
+
+<h3>注意：</h3>
+
+<ol>
+<li> 这个功能只有在开发者提交新版本应用到 App Store 的时候才有用，比如通过企业证书直接分发应用的时候是没有这个功能的。</li>
+<li> 本文描述的文件差异比较，不包括文件的创建时间，修改时间。也就是说，当我们的文件只有创建时间和修改时间被更改的时候，文件是不会被更新的。所以我们的应用，不要依赖安装包里面文件的创建时间和修改时间。</li>
+</ol>
+
+
+<h3>我们的工作：</h3>
+
+<p>  iOS 的这套方案非常优雅，不需要开发者做额外的工作，并且更新中没有不必要的开销，这得益于渠道的统一。我们优化安装包大小的时候，应该包含两个目标：</p>
+
+<ol>
+<li> 通过减少安装包文件，压缩安装包文件，来提升用户的第一次安装应用的体验。</li>
+<li> 同时，减少文件更改，隔离文件频繁变动的部分，来提升用户的升级应用的体验。</li>
+</ol>
+
+
+<p>  同时，在过去我们优化安装包大小的时候，其实踩到了两个陷阱：</p>
+
+<ol>
+<li> 我们会通过压缩安装包的所有图片，来减小安装包的大小，其实这样会更改大量的文件，导致更新包变大，需要权衡压缩效果和对更新包大小的影响。</li>
+<li> 我们会通过合并图片资源文件，来减小文件大小，以及提升读取文件速度。这样合并后的大文件的更新频率会提高，增大了更新包大小，以及降低了安装速度(iOS7以上会增加合并文件的操作)。所以这种方案也是需要权衡的。</li>
+</ol>
+
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[判断自己的应用是否被调试启动]]></title>
+    <link href="http://wison.me/blog/2014/08/09/pan-duan-zi-ji-de-ying-yong-shi-fou-bei-diao-shi-qi-dong/"/>
+    <updated>2014-08-09T14:41:33+08:00</updated>
+    <id>http://wison.me/blog/2014/08/09/pan-duan-zi-ji-de-ying-yong-shi-fou-bei-diao-shi-qi-dong</id>
+    <content type="html"><![CDATA[<p>转自：<a href="https://developer.apple.com/library/ios/qa/qa1361/_index.html#//apple_ref/doc/uid/DTS10003368">https://developer.apple.com/library/ios/qa/qa1361/_index.html#//apple_ref/doc/uid/DTS10003368</a></p>
+
+<p>目前能够想到的两个用处：</p>
+
+<ol>
+<li>加入一些开发调试过程中才运行的代码，方便开发。</li>
+<li>可以检测到被恶意调起，终止敏感操作。</li>
+</ol>
+
+
+<!-- more -->
+
+
+<p>```</p>
+
+<h1>include &lt;assert.h></h1>
+
+<h1>include &lt;stdbool.h></h1>
+
+<h1>include &lt;sys/types.h></h1>
+
+<h1>include &lt;unistd.h></h1>
+
+<h1>include &lt;sys/sysctl.h></h1>
+
+<p>static bool AmIBeingDebugged(void)</p>
+
+<pre><code>// Returns true if the current process is being debugged (either 
+// running under the debugger or has a debugger attached post facto).
+</code></pre>
+
+<p>{</p>
+
+<pre><code>int                 junk;
+int                 mib[4];
+struct kinfo_proc   info;
+size_t              size;
+
+// Initialize the flags so that, if sysctl fails for some bizarre 
+// reason, we get a predictable result.
+
+info.kp_proc.p_flag = 0;
+
+// Initialize mib, which tells sysctl the info we want, in this case
+// we're looking for information about a specific process ID.
+
+mib[0] = CTL_KERN;
+mib[1] = KERN_PROC;
+mib[2] = KERN_PROC_PID;
+mib[3] = getpid();
+
+// Call sysctl.
+
+size = sizeof(info);
+junk = sysctl(mib, sizeof(mib) / sizeof(*mib), &amp;info, &amp;size, NULL, 0);
+assert(junk == 0);
+
+// We're being debugged if the P_TRACED flag is set.
+
+return ( (info.kp_proc.p_flag &amp; P_TRACED) != 0 );
+</code></pre>
+
+<p>}
+```</p>
+]]></content>
+  </entry>
+  
+</feed>

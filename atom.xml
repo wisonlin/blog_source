@@ -1,0 +1,796 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+
+  <title><![CDATA[苹果君的博客]]></title>
+  <link href="http://wison.me/atom.xml" rel="self"/>
+  <link href="http://wison.me/"/>
+  <updated>2014-10-27T23:25:39+08:00</updated>
+  <id>http://wison.me/</id>
+  <author>
+    <name><![CDATA[苹果君]]></name>
+    <email><![CDATA[460760604@qq.com]]></email>
+  </author>
+  <generator uri="http://octopress.org/">Octopress</generator>
+
+  
+  <entry>
+    <title type="html"><![CDATA[iOS8 转屏 Bug 汇总]]></title>
+    <link href="http://wison.me/blog/2014/10/19/ios8-zhuan-ping-bug-hui-zong/"/>
+    <updated>2014-10-19T22:53:36+08:00</updated>
+    <id>http://wison.me/blog/2014/10/19/ios8-zhuan-ping-bug-hui-zong</id>
+    <content type="html"><![CDATA[<p>iOS8 对页面的旋转机制做了一些改变，这些改动也带来了不少问题。<br/>
+本文介绍三个已经发现的问题，并尝试给出解决方案。</p>
+
+<!-- more -->
+
+
+<h3>问题一：页面的旋转动画执行过程中dismiss，会让底下的不可旋转页面发生旋转。</h3>
+
+<p>先看一下这个bug的Qzone截图：</p>
+
+<p><img src="http://wison.me/images/2014-10-20-1.png" width="568" height="320" /></p>
+
+<p>“动态” 这个页面，是不支持横屏的，但是却还是被系统旋转了。<br/>
+此时，已经按照屏幕宽度创建好的视图自然不能拓展到充满屏幕。
+接下来我们讨论一下重现的步骤。</p>
+
+<ol>
+<li>首先，准备阶段，手机不锁定屏幕方向。页面A不可旋转，页面B可旋转，手机竖屏状态下，A present B。</li>
+<li>接着，复现阶段。dismiss B，同时旋转手机到横屏。</li>
+<li>最后，看现象。页面B发生了旋转，同时页面B消失，A页面也发生了旋转。</li>
+</ol>
+
+
+<p>如果没有出现问题，可能要多试几次，这里的同时比较难，<strong>本质是要让页面发生旋转动画的时候，触发dismiss逻辑。</strong></p>
+
+<p>以下是苹果自家App，Apple Store的截图，10月6日的版本，该版本的改动是兼容iOS8 。</p>
+
+<p><img src="http://wison.me/images/2014-10-20-2.png" width="568" height="320" /></p>
+
+<p>以下是手机QQ 10月8日更新的版本。</p>
+
+<p><img src="http://wison.me/images/2014-10-20-3.jpg" width="568" height="320" /></p>
+
+<p>影响面:<br/>
+在用户那里出现这个bug的概率有点低，但是还是存在一定量。<br/>
+并且一旦出现，所有假设自己一定在竖屏状态下工作的页面都会出问题。<br/>
+因为此时页面的宽度其实是手机屏幕的高度。假如某一些控件创建时依赖了页面的宽度，那么可能回到竖屏的时候表现异常，由于假设了一定在竖屏状态下工作，所以该页面也当然不会处理转屏的情况。</p>
+
+<p>解决方法:<br/>
+简而言之，<strong>dismiss的时候，让页面不可旋转；页面旋转的时候，不让用户触发 dismiss。就可以了。</strong></p>
+
+<h3>问题二：屏幕横屏时，UIScreen 的宽高会发生变化</h3>
+
+<p>iOS 8 已经没有屏幕旋转的概念，只有屏幕大小变化的概念，详细看 WWDC 2014。<br/>
+也就是说，在 iOS 8 上，当页面横屏的时候，不会收到屏幕旋转的通知，而是会收到屏幕大小改变的通知。<br/>
+并且，此时 UIScreen 和 UIWindow 的宽高都会发生变化。<br/>
+以下是 iOS 8 横屏时的视图树：</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>&lt;UIWindow: 0x178d2320; frame = (0 0; 568 320);&gt;
+</span><span class='line'>   | &lt;UITransitionView: 0x17fe3180; frame = (0 0; 568 320);&gt;
+</span><span class='line'>   |    | &lt;UILayoutContainerView: 0x17fd6280; frame = (0 0; 568 320);&gt;
+</span><span class='line'>   |    |    | &lt;UINavigationTransitionView: 0x17fdb4f0; frame = (0 0; 568 320);&gt;
+</span><span class='line'>
+</span><span class='line'>以及此时的屏幕大小如下：   
+</span><span class='line'>&lt;UIScreen: 0x15863810; bounds = { {0, 0}, {568, 320} }; mode = &lt;UIScreenMode: 0x147be4a0; size = 640.000000 x 1136.000000&gt;&gt;</span></code></pre></td></tr></table></div></figure>
+
+
+<p>注意宽高已经相反了，对比同样情况下的 iOS 7 的视图树：</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>&lt;UIWindow: 0x79e59460; frame = (0 0; 320 568);&gt;
+</span><span class='line'>   | &lt;UILayoutContainerView: 0x7b18e140; frame = (0 0; 320 568); transform = [0, 1, -1, 0, 0, 0]; &gt;
+</span><span class='line'>   |    | &lt;UINavigationTransitionView: 0x7b17b390; frame = (0 0; 568 320); &gt;
+</span><span class='line'>
+</span><span class='line'>&lt;UIScreen: 0x79e48cd0; bounds = { {0, 0}, {320, 568} }; mode = &lt;UIScreenMode: 0x79fa0520; size = 640.000000 x 1136.000000&gt;&gt;</span></code></pre></td></tr></table></div></figure>
+
+
+<p>仔细看看会发现，iOS 7 的屏幕没有变化，通过中间的 ContainerView 加上 transform 来达到下层视图的旋转。</p>
+
+<p>这种改变会带来什么样的后果的呢？<br/>
+答案是，所有依赖屏幕宽高来创建的视图或者布局信息都会出问题，因为宽度随时都会变化。<br/>
+截一个Qzone的Feed图片：</p>
+
+<p><img src="http://wison.me/images/2014-10-20-4.png" width="320" height="568" />
+<img src="http://wison.me/images/2014-10-20-5.png" width="320" height="568" /></p>
+
+<p>这里的文字排版，超出了屏幕的宽。<br/>
+重现步骤如下：弱网络，上拉加载更多时，随便点击一张图片进图片浮层并横屏。<br/>
+等待后面 Feed 接收完毕并进行排版，此时排版取的宽度，会是手机屏幕的高度。<br/>
+排版完成后，从浮层回来，Feed 内容就超出屏幕的宽度了。<br/>
+并且这个错误的排版会一直保持，除非触发再次排版。<br/>
+解决方法是，取宽度的时候不要直接去屏幕宽度，而是 <strong> 先判断屏幕方向，竖屏去宽度，横屏取高度。</strong></p>
+
+<h3>问题三：同一个导航栏中横屏界面 pop 出竖屏界面的时候，动画异常。</h3>
+
+<p>第三个问题比较复杂，iOS8改了横屏界面 pop 竖屏界面的动画，跟iOS 7 有点不同。<br/>
+具体实现移步 <a href="http://wison.me/blog/2014/10/19/ios8-dao-hang-lan-kong-zhi-qi-heng-ping-ye-mian-dan-chu-shu-ping-ye-mian-de-shi-xian/">iOS8 导航栏横屏页面弹出竖屏页面的实现</a>，
+目前还没有找到好的解决方法，直接换成 present 规避之。<br/>
+或者可以尝试一下自定义动画，有兴趣的可以尝试一下。</p>
+
+<p class='post-footer'>&nbsp;written by <a href='http://wison.me'>苹果君</a>&nbsp;posted at <a href='http://wison.me'>http://wison.me</a></br>&nbsp;版权声明：自由转载-非商用-非衍生-保持署名| <a href='http://creativecommons.org/licenses/by-nc-nd/3.0/deed.zh'>Creative Commons BY-NC-ND 3.0</a></p>
+
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[iOS8 导航控制器横屏页面弹出竖屏页面的实现]]></title>
+    <link href="http://wison.me/blog/2014/10/19/ios8-dao-hang-lan-kong-zhi-qi-heng-ping-ye-mian-dan-chu-shu-ping-ye-mian-de-shi-xian/"/>
+    <updated>2014-10-19T20:07:21+08:00</updated>
+    <id>http://wison.me/blog/2014/10/19/ios8-dao-hang-lan-kong-zhi-qi-heng-ping-ye-mian-dan-chu-shu-ping-ye-mian-de-shi-xian</id>
+    <content type="html"><![CDATA[<p>我们都知道，同一个导航控制器中，我们可以做到两个不同的页面有不同的方向。
+例如一个页面支持竖屏，我们 push 一个新的页面，支持横屏。
+本文介绍了这种情况下，iOS 8 做 pop 动画的实现。</p>
+
+<!-- more -->
+
+
+<p>例子如下：</p>
+
+<p><img src="http://wison.me/images/2014-10-19-1.jpg" width="320" height="568" />
+<img src="http://wison.me/images/2014-10-19-2.png" width="320" height="568" /></p>
+
+<p>好，问题来了，第二个页面横屏，点击第二个页面的返回按钮，触发导航栏的 pop 逻辑，此时的动画应该是怎么样的？</p>
+
+<p>iOS 8 会有这样的一个动画：</p>
+
+<p><img src="http://wison.me/images/2014-10-19-3.png" width="434" height="593" /></p>
+
+<p>横屏页面会原封不动的，做一个类似pop的动画，箭头为横屏页面的动画方向。
+iOS 8 为了做到这个效果，选择对导航控制器的 pop 操作动刀。具体是这么做的：
+做 pop 动作的时候，导航控制器发现当前控制器是横屏，上一个控制器是竖屏的时候。
+那么会临时 present 一个当前页面的截图，由这个截图来模拟 pop 动画，而真正的 pop 操作不包含动画。
+流程如下：</p>
+
+<p><img src="http://wison.me/images/2014-10-19-4.png" alt="image" /></p>
+
+<p>简而言之，iOS 8 通过截图的方式，实现了横屏到竖屏的 pop 动画。
+所以，-[UINavigationController popViewControllerAnimated:] 这个接口的实现就会复杂很多。
+此时的 pop 操作，包含了 present一个页面，dismiss一个页面，以及真正的pop操作。
+代码大概应该是这样的：</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="k">-</span> <span class="p">(</span><span class="n">UIViewController</span> <span class="o">*</span><span class="p">)</span><span class="nf">popViewControllerAnimated:</span><span class="p">(</span><span class="kt">BOOL</span><span class="p">)</span><span class="nv">animatd</span>
+</span><span class='line'><span class="p">{</span>
+</span><span class='line'>    <span class="k">if</span> <span class="p">(</span><span class="n">animated</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>        <span class="k">if</span> <span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">topController</span><span class="p">.</span><span class="n">orientation</span> <span class="o">==</span> <span class="n">landscape</span> <span class="o">&amp;&amp;</span> <span class="n">self</span><span class="p">.</span><span class="n">preViewController</span><span class="p">.</span><span class="n">orientation</span> <span class="o">==</span> <span class="n">portrait</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>            <span class="n">UISnapshotModalViewController</span> <span class="o">*</span><span class="n">snapShot</span> <span class="o">=</span> <span class="p">[[</span><span class="n">UISnapshotModalViewController</span> <span class="n">alloc</span><span class="p">]</span> <span class="nl">initWithViewController:</span><span class="n">self</span><span class="p">.</span><span class="n">topViewController</span><span class="p">];</span>
+</span><span class='line'>            <span class="p">[</span><span class="n">self</span> <span class="nl">presentViewController:</span><span class="n">snapShot</span> <span class="nl">animated:</span><span class="n">NO</span><span class="p">];</span>
+</span><span class='line'>            <span class="p">[</span><span class="n">self</span> <span class="nl">popViewControllerAnimated:</span><span class="n">NO</span><span class="p">];</span>
+</span><span class='line'>            <span class="p">[</span><span class="n">self</span> <span class="n">dismissViewControllerWithPopAnimate</span><span class="p">];</span>
+</span><span class='line'>        <span class="p">}</span>
+</span><span class='line'>        <span class="p">[</span><span class="n">self</span> <span class="n">doPopViewControllerAnimated</span><span class="p">];</span>
+</span><span class='line'>    <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+</span><span class='line'>        <span class="p">[</span><span class="n">self</span> <span class="n">doPopViewController</span><span class="p">];</span>
+</span><span class='line'>    <span class="p">}</span>
+</span><span class='line'><span class="p">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>以上，便是 iOS 8 在 横屏页面 pop 出竖屏页面的动画的实现。
+注意第七行代码，如果调用 popViewControllerAnimated 时如果传入的参数是 YES，
+那么 popViewControllerAnimated 会被调用两次！
+第一次是 popViewControllerAnimated:YES，第二次是 popViewControllerAnimated:NO 。
+重写或者替换 UINavigationController 的 popViewControllerAnimated: 时需要注意这里。</p>
+
+<p class='post-footer'>&nbsp;written by <a href='http://wison.me'>苹果君</a>&nbsp;posted at <a href='http://wison.me'>http://wison.me</a></br>&nbsp;版权声明：自由转载-非商用-非衍生-保持署名| <a href='http://creativecommons.org/licenses/by-nc-nd/3.0/deed.zh'>Creative Commons BY-NC-ND 3.0</a></p>
+
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[NSHashTable 引起的性能问题]]></title>
+    <link href="http://wison.me/blog/2014/08/10/nshashtable-yin-qi-de-xing-neng-wen-ti/"/>
+    <updated>2014-08-10T01:46:40+08:00</updated>
+    <id>http://wison.me/blog/2014/08/10/nshashtable-yin-qi-de-xing-neng-wen-ti</id>
+    <content type="html"><![CDATA[<p>  本文介绍了在 Core Text 排版中，往 NSAttributeString 增加一个属性时引起的性能问题。</p>
+
+<!-- more -->
+
+
+<p>  在 Feeds 的 Core Text 排版中，NSAttributeString 中的某一小段的点击跳转行为是存储在 NSAttributeString 的属性中的。</p>
+
+<p>代码如下：</p>
+
+<p>  <img src="http://wison.me/images/2014-08-10-1-1.png" alt="image" /></p>
+
+<p>  QZTextLinkHelper 存储了点击跳转的相关信息，比如 url 跳转，昵称跳转等。</p>
+
+<p>  setLinkHelper 做为 NSAttributeString 的扩展方法，通过 [NSAttributeString addAttribute:value:range] 方法存储 linkHelper 的属性。</p>
+
+<p>  这里，linkHelper 的 linkAttributes 是一个 NSDictionary 对象。</p>
+
+<p>  好，问题出来了。我们发现，Feeds 排版变得异常耗时，滑动卡顿，profile 一下之后发现一个奇怪的热点：</p>
+
+<p>  <img src="http://wison.me/images/2014-08-10-1-2.jpeg" alt="image" /></p>
+
+<p>  [NSAttributeString addAttribute:value:range] 里面耗时很多，仔细看调用栈发现，内部的 attribute 都是通过 NSHashTable 存储的。</p>
+
+<p>  堆栈中出现的 [NSHashTable member:] 是取值操作，耗时主要在最后的比较两个 Dictionary 是否相等上面。</p>
+
+<p>  我们先重温一下哈希表取值的原理，见下图，红色部分代表耗时很长的步骤。</p>
+
+<p>  <img src="http://wison.me/images/2014-08-10-1-3.png" alt="image" /></p>
+
+<p>  根据上图，我们可以看出，当哈希表频繁对比两个对象是否相等的时候，说明哈希表的键冲突已经非常严重了。</p>
+
+<p>  于是转而把目光转向 NSDictionary 是怎么计算自己的哈希值的。</p>
+
+<p>  写了一个 demo 试了一下，发现 NSDictionary 的哈希值等于其 key 的个数，非常简单的一个计算，也非常容易冲突。</p>
+
+<p>  于是，解决方法就是在 addAttribute 的时候直接塞入 linkHelper 就可以了。
+  因为NSObject的哈希值默认是指针地址。</p>
+
+<p>总结：</p>
+
+<p>  [NSAttributeString addAttribute:value:range] 这个方法如果传入一个 NSDictionary 会非常耗时，原因有两个：</p>
+
+<ol>
+<li><p> NSAttributeString 以 HashTable 的方式存储 attribute，这使 attribute 的存取变得很复杂，我们必须确保传入的自定义 attribute 的哈希值不易冲突，或者保证其 isEqual 方法的效率。</p></li>
+<li><p> NSDictionary 的哈希值计算太过于简单了，基本不能跟 NSHashTable 这种容器共存。</p></li>
+</ol>
+
+
+<p>附：调用 [NSHashTable addObject:] 传入不同对象时的性能对比。</p>
+
+<p>10000个NSNumber：2ms</p>
+
+<p>10000个相同的NSDictionary：33000ms</p>
+
+<p>10000个key数量各不相同的NSDictionary：400ms</p>
+
+<p class='post-footer'>&nbsp;written by <a href='http://wison.me'>苹果君</a>&nbsp;posted at <a href='http://wison.me'>http://wison.me</a></br>&nbsp;版权声明：自由转载-非商用-非衍生-保持署名| <a href='http://creativecommons.org/licenses/by-nc-nd/3.0/deed.zh'>Creative Commons BY-NC-ND 3.0</a></p>
+
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[iOS 增量更新机制介绍]]></title>
+    <link href="http://wison.me/blog/2014/08/09/ios-zeng-liang-geng-xin-ji-zhi-jie-shao/"/>
+    <updated>2014-08-09T19:41:08+08:00</updated>
+    <id>http://wison.me/blog/2014/08/09/ios-zeng-liang-geng-xin-ji-zhi-jie-shao</id>
+    <content type="html"><![CDATA[<p>  从 iOS6 开始，iOS 引入了增量更新(delta update)，App Store 对应用的新版本更新的提交，会自动生成增量更新包。
+  用户在更新应用的新版本的时候，只会下载差异部分，这样就加快了下载速度，也同时提升了安装速度。
+  本文介绍了 iOS 的增量更新机制，以及优化应用安装包大小时应注意的问题。</p>
+
+<!-- more -->
+
+
+<h3>差异化更新的机制：</h3>
+
+<p>  自动生成更新包的时候，App Store 将会比较应用的每一个老版本和新版本的差异，针对每一个旧版本，生成一个更新包，每一个更新包里面，只包含了两个版本之间有变化的文件，而没有变化的文件则不包含。应用更新包中除了有差异的内容之外，还包括了一个简单的命令脚本，存储增加，更新，删除某个文件的命令，安装的时候将被执行。
+  差异化更新的这个过程，对于开发者和用户都是透明的，并且，用更新包更新应用和直接下载完整包安装没有任何区别。</p>
+
+<h3>差异化更新的好处：</h3>
+
+<p>  有了差异化更新之后，更新包将会比应用的完整安装包小很多，并且安装也将更快。
+  我们都知道，蜂窝网络下，应用的安装包超过某一个大小的时候，将不支持下载。但是，如果更新包小于这个限制大小的话，大型应用也可以在蜂窝网络下更新。</p>
+
+<h3>针对这样的机制，有两个建议，可以优化用户更新应用的速度：</h3>
+
+<ol>
+<li> 不要对文件进行不必要的更改，可以在发布之前用文件比较工具比较一下。</li>
+<li> 如果可能，将频繁变化的文件和其他文件分开，减少差异更新包的大小，以及加快安装速度。</li>
+</ol>
+
+
+<p>  在 iOS 6 上，差异更新的粒度是文件级，就是说文件一旦有变化，将会被完全放入更新包中，比如有个10MB的文件，只改动了里面的一点点内容，那么整个10MB的文件都会被塞进更新包中下发给用户。</p>
+
+<p>  但是，在 iOS 7 以后，差异更新的粒度优化成了字节级的比较，更新包中只会包含文件之间的差异部分，而不是整个文件。这样的话，如果文件之间只有小小的差异的时候，更新包将会比之前小很多，但是同时也降低了安装的速度。
+  所以，即使是在iOS 7之后，以上的两条建议依然很重要。在 iOS 7 以上的系统，减少文件改动，和隔离频繁更改的文件，不仅会减小更新包大小，也会提高安装速度。</p>
+
+<h3>注意：</h3>
+
+<ol>
+<li> 这个功能只有在开发者提交新版本应用到 App Store 的时候才有用，比如通过企业证书直接分发应用的时候是没有这个功能的。</li>
+<li> 本文描述的文件差异比较，不包括文件的创建时间，修改时间。也就是说，当我们的文件只有创建时间和修改时间被更改的时候，文件是不会被更新的。所以我们的应用，不要依赖安装包里面文件的创建时间和修改时间。</li>
+</ol>
+
+
+<h3>我们的工作：</h3>
+
+<p>  iOS 的这套方案非常优雅，不需要开发者做额外的工作，并且更新中没有不必要的开销，这得益于渠道的统一。我们优化安装包大小的时候，应该包含两个目标：</p>
+
+<ol>
+<li> 通过减少安装包文件，压缩安装包文件，来提升用户的第一次安装应用的体验。</li>
+<li> 同时，减少文件更改，隔离文件频繁变动的部分，来提升用户的升级应用的体验。</li>
+</ol>
+
+
+<p>  同时，在过去我们优化安装包大小的时候，其实踩到了两个陷阱：</p>
+
+<ol>
+<li> 我们会通过压缩安装包的所有图片，来减小安装包的大小，其实这样会更改大量的文件，导致更新包变大，需要权衡压缩效果和对更新包大小的影响。</li>
+<li> 我们会通过合并图片资源文件，来减小文件大小，以及提升读取文件速度。这样合并后的大文件的更新频率会提高，增大了更新包大小，以及降低了安装速度(iOS7以上会增加合并文件的操作)。所以这种方案也是需要权衡的。</li>
+</ol>
+
+
+<p class='post-footer'>&nbsp;written by <a href='http://wison.me'>苹果君</a>&nbsp;posted at <a href='http://wison.me'>http://wison.me</a></br>&nbsp;版权声明：自由转载-非商用-非衍生-保持署名| <a href='http://creativecommons.org/licenses/by-nc-nd/3.0/deed.zh'>Creative Commons BY-NC-ND 3.0</a></p>
+
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[判断自己的应用是否被调试启动]]></title>
+    <link href="http://wison.me/blog/2014/08/09/pan-duan-zi-ji-de-ying-yong-shi-fou-bei-diao-shi-qi-dong/"/>
+    <updated>2014-08-09T14:41:33+08:00</updated>
+    <id>http://wison.me/blog/2014/08/09/pan-duan-zi-ji-de-ying-yong-shi-fou-bei-diao-shi-qi-dong</id>
+    <content type="html"><![CDATA[<p>转自：<a href="https://developer.apple.com/library/ios/qa/qa1361/_index.html#//apple_ref/doc/uid/DTS10003368">https://developer.apple.com/library/ios/qa/qa1361/_index.html#//apple_ref/doc/uid/DTS10003368</a></p>
+
+<p>目前能够想到的两个用处：</p>
+
+<ol>
+<li>加入一些开发调试过程中才运行的代码，方便开发。</li>
+<li>可以检测到被恶意调起，终止敏感操作。</li>
+</ol>
+
+
+<!-- more -->
+
+
+
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+<span class='line-number'>31</span>
+<span class='line-number'>32</span>
+<span class='line-number'>33</span>
+<span class='line-number'>34</span>
+<span class='line-number'>35</span>
+<span class='line-number'>36</span>
+<span class='line-number'>37</span>
+<span class='line-number'>38</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>#include &lt;assert.h&gt;
+</span><span class='line'>#include &lt;stdbool.h&gt;
+</span><span class='line'>#include &lt;sys/types.h&gt;
+</span><span class='line'>#include &lt;unistd.h&gt;
+</span><span class='line'>#include &lt;sys/sysctl.h&gt;
+</span><span class='line'>
+</span><span class='line'>static bool AmIBeingDebugged(void)
+</span><span class='line'>    // Returns true if the current process is being debugged (either 
+</span><span class='line'>    // running under the debugger or has a debugger attached post facto).
+</span><span class='line'>{
+</span><span class='line'>    int                 junk;
+</span><span class='line'>    int                 mib[4];
+</span><span class='line'>    struct kinfo_proc   info;
+</span><span class='line'>    size_t              size;
+</span><span class='line'>
+</span><span class='line'>    // Initialize the flags so that, if sysctl fails for some bizarre 
+</span><span class='line'>    // reason, we get a predictable result.
+</span><span class='line'>
+</span><span class='line'>    info.kp_proc.p_flag = 0;
+</span><span class='line'>
+</span><span class='line'>    // Initialize mib, which tells sysctl the info we want, in this case
+</span><span class='line'>    // we're looking for information about a specific process ID.
+</span><span class='line'>
+</span><span class='line'>    mib[0] = CTL_KERN;
+</span><span class='line'>    mib[1] = KERN_PROC;
+</span><span class='line'>    mib[2] = KERN_PROC_PID;
+</span><span class='line'>    mib[3] = getpid();
+</span><span class='line'>
+</span><span class='line'>    // Call sysctl.
+</span><span class='line'>
+</span><span class='line'>    size = sizeof(info);
+</span><span class='line'>    junk = sysctl(mib, sizeof(mib) / sizeof(*mib), &info, &size, NULL, 0);
+</span><span class='line'>    assert(junk == 0);
+</span><span class='line'>
+</span><span class='line'>    // We're being debugged if the P_TRACED flag is set.
+</span><span class='line'>
+</span><span class='line'>    return ( (info.kp_proc.p_flag & P_TRACED) != 0 );
+</span><span class='line'>}</span></code></pre></td></tr></table></div></figure>
+
+
+<p class='post-footer'>&nbsp;written by <a href='http://wison.me'>苹果君</a>&nbsp;posted at <a href='http://wison.me'>http://wison.me</a></br>&nbsp;版权声明：自由转载-非商用-非衍生-保持署名| <a href='http://creativecommons.org/licenses/by-nc-nd/3.0/deed.zh'>Creative Commons BY-NC-ND 3.0</a></p>
+
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Can't Add Self as Subview]]></title>
+    <link href="http://wison.me/blog/2014/06/01/cant-add-self-as-subview/"/>
+    <updated>2014-06-01T11:37:34+08:00</updated>
+    <id>http://wison.me/blog/2014/06/01/cant-add-self-as-subview</id>
+    <content type="html"><![CDATA[<p>iOS7刚发布的时候，总是出现这个 Can&rsquo;t add self as subview  的崩溃，团队内部没出现过，但是外部用户的crash频频上报这个崩溃。本文讲述发现这个bug，分析定位，到解决的过程。</p>
+
+<!-- more -->
+
+
+<p>异常描述和崩溃堆栈是这样的：</p>
+
+<p>*** Terminating app due to uncaught exception &lsquo;NSInvalidArgumentException&rsquo;, reason: &lsquo;Can&rsquo;t add self as subview&rsquo;</p>
+
+<p><img src="http://wison.me/images/2014-06-01-1.jpg" alt="image" /></p>
+
+<p>这里有两个线索，一个是从崩溃堆栈中看到了崩溃的时间点：导航栏对内部的控制器做切换动画的时候崩溃。</p>
+
+<p>另一个线索则是addSubView的参数不能是对象本身。一开始怀疑是addSubView传入self引起，于是用类似 [self addSubView:self] 的代码试了一下，的确是会崩溃的。</p>
+
+<p><img src="http://wison.me/images/2014-06-01-2.jpg" alt="image" /></p>
+
+<p>但是堆栈跟外部用户上报的不一样，排除 [self addSubView:self] 直接导致崩溃的可能性。</p>
+
+<p>也就是说，不是我们工程调用了[self addSubView:self] 引起崩溃，
+而是我们工程里面的某一些代码会导致UIKit内部执行 addSubView 的时候，传入了 self。
+为什么说是我们的代码引起呢？因为崩溃的时候，页面总是停留在某几个特定的页面，这个后面会分析。</p>
+
+<p>再看看第二个线索，即导航栏在做动画的时候出了问题。</p>
+
+<p>以上，我们可以得出一个中间结论，即我们的代码，让导航栏在做动画的时候，执行了一次 [self addSubView:self]。
+再说说崩溃集中的几个页面，用户上报的崩溃中，并不是总在一个页面崩溃，但是固定出现在特定的某几个页面。</p>
+
+<p>着重看了log里面崩溃前每一个页面切换的时间，果然比较短，有些甚至少于0.5秒，少于导航栏push和pop动画的时间。
+接着，用代码模拟一下快速切换的场景，比如0.3秒只能做两次push操作：</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="p">[</span><span class="n">navigationController</span> <span class="nl">pushViewController:</span><span class="p">[[</span><span class="n">TMViewController</span> <span class="n">alloc</span><span class="p">]</span> <span class="n">init</span><span class="p">]</span> <span class="nl">animated:</span><span class="n">YES</span><span class="p">];</span>
+</span><span class='line'>  <span class="n">dispatch_after</span><span class="p">(</span><span class="n">dispatch_time</span><span class="p">(</span><span class="n">DISPATCH_TIME_NOW</span><span class="p">,</span> <span class="p">(</span><span class="n">int64_t</span><span class="p">)(</span><span class="mf">.3</span> <span class="o">*</span> <span class="n">NSEC_PER_SEC</span><span class="p">)),</span>
+</span><span class='line'>  <span class="n">dispatch_get_main_queue</span><span class="p">(),</span> <span class="o">^</span><span class="p">{</span>
+</span><span class='line'>  <span class="p">[</span><span class="n">navigationController</span> <span class="nl">pushViewController:</span><span class="p">[[</span><span class="n">TMViewController</span> <span class="n">alloc</span><span class="p">]</span> <span class="n">init</span><span class="p">]</span> <span class="nl">animated:</span><span class="n">YES</span><span class="p">];</span>
+</span><span class='line'><span class="p">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>果然崩溃了，得到的堆栈跟文章开头的一模一样。</p>
+
+<p>接着，检查崩溃上报的其他页面，发现这些页面都在特定的场景下会出现同时做push或者pop操作的情况。
+于是，模拟各种短时间push和pop页面的场景，都会出现这样的崩溃。
+这时候几乎已经明确了就是动画被打断引起的。</p>
+
+<p>原来，其实就是iOS5，6下的nested push 问题，只不过到iOS7上，这个问题的提前在做动画的时候崩溃了。</p>
+
+<p>为了防止这种情况，我们在UINavigationController基类中加入防御，具体做法是在push，pop方法中设置一个标志位(animating=YES)，在动画结束之后，再重置这个标志位，然后，用这个标志位判断push和pop操作是否能够执行。</p>
+
+<p>比如，push这样实现：</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="k">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">pushViewController:</span><span class="p">(</span><span class="n">UIViewController</span> <span class="o">*</span><span class="p">)</span><span class="nv">viewController</span> <span class="nf">animated:</span><span class="p">(</span><span class="kt">BOOL</span><span class="p">)</span><span class="nv">animated</span>
+</span><span class='line'><span class="p">{</span>
+</span><span class='line'>  <span class="k">if</span> <span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">topViewController</span><span class="p">.</span><span class="n">animating</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>      <span class="n">NSLog</span><span class="p">(</span><span class="s">@&quot;error push when animating.&quot;</span><span class="p">);</span>
+</span><span class='line'>      <span class="k">return</span><span class="p">;</span>
+</span><span class='line'>  <span class="p">}</span>
+</span><span class='line'>  <span class="n">self</span><span class="p">.</span><span class="n">topViewController</span><span class="p">.</span><span class="n">animating</span> <span class="o">=</span> <span class="n">animated</span><span class="p">;</span>
+</span><span class='line'>  <span class="n">viewController</span><span class="p">.</span><span class="n">animating</span> <span class="o">=</span> <span class="n">animated</span><span class="p">;</span>
+</span><span class='line'>  <span class="p">[</span><span class="n">super</span> <span class="nl">pushViewController:</span><span class="n">viewController</span> <span class="nl">aniamted:</span><span class="n">animated</span><span class="p">];</span>
+</span><span class='line'><span class="p">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>其中有一个细节是，参与动画的两个控制器都需要设标志位。
+结束动画的时候重置标志位，时机是在控制器的viewDidAppear和viewDidDisappear里面。</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="k">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">viewDidAppear:</span><span class="p">(</span><span class="kt">BOOL</span><span class="p">)</span><span class="nv">animated</span>
+</span><span class='line'><span class="p">{</span>
+</span><span class='line'>  <span class="p">[</span><span class="n">super</span> <span class="nl">viewDidAppear:</span><span class="n">animated</span><span class="p">];</span>
+</span><span class='line'>  <span class="n">self</span><span class="p">.</span><span class="n">animating</span> <span class="o">=</span> <span class="n">NO</span><span class="p">;</span>
+</span><span class='line'><span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">viewDidDisappear:</span><span class="p">(</span><span class="kt">BOOL</span><span class="p">)</span><span class="nv">animated</span>
+</span><span class='line'><span class="p">{</span>
+</span><span class='line'>  <span class="p">[</span><span class="n">super</span> <span class="nl">viewDidDisappear:</span><span class="n">animated</span><span class="p">];</span>
+</span><span class='line'>  <span class="n">self</span><span class="p">.</span><span class="n">animating</span> <span class="o">=</span> <span class="n">NO</span><span class="p">;</span>
+</span><span class='line'><span class="p">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p class='post-footer'>&nbsp;written by <a href='http://wison.me'>苹果君</a>&nbsp;posted at <a href='http://wison.me'>http://wison.me</a></br>&nbsp;版权声明：自由转载-非商用-非衍生-保持署名| <a href='http://creativecommons.org/licenses/by-nc-nd/3.0/deed.zh'>Creative Commons BY-NC-ND 3.0</a></p>
+
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[viewDidUnload 和 viewWillUnload 被废弃之后的内存警告处理]]></title>
+    <link href="http://wison.me/blog/2013/04/07/viewdidunload-he-viewwillunload-bei-fei-qi-zhi-hou-de-nei-cun-jing-gao-chu-li/"/>
+    <updated>2013-04-07T21:31:24+08:00</updated>
+    <id>http://wison.me/blog/2013/04/07/viewdidunload-he-viewwillunload-bei-fei-qi-zhi-hou-de-nei-cun-jing-gao-chu-li</id>
+    <content type="html"><![CDATA[<p>由于iOS6以上的UIKit不会在内存警告时自动释放视图，所以viewWillUnload和viewDidUnload将不再触发，因此，在iOS6上，开发者需要负责内存警告时将不用到的视图释放。</p>
+
+<!-- more -->
+
+
+<p>WWDC2012的视频有提到，具体代码如下：</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="k">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">didReceiveMemoryWarning</span> <span class="p">{</span>
+</span><span class='line'>     <span class="k">if</span> <span class="p">([</span><span class="n">self</span><span class="p">.</span><span class="n">view</span> <span class="n">window</span><span class="p">]</span> <span class="o">==</span> <span class="nb">nil</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>          <span class="n">self</span><span class="p">.</span><span class="n">view</span> <span class="o">=</span> <span class="nb">nil</span><span class="p">;</span>
+</span><span class='line'>          <span class="n">self</span><span class="p">.</span><span class="n">otherSubView</span> <span class="o">=</span> <span class="nb">nil</span><span class="p">;</span>
+</span><span class='line'>     <span class="p">}</span>
+</span><span class='line'><span class="p">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>由于[self view]会引发视图的加载所以上述代码还是有潜在风险的，假如视图控制器在创建之后，在还没有加载视图时收到内存警告，那上面的代码就会触发视图的加载（调用了[self view]引起），反而加大了内存占用。所以应该先判断一下视图是否已被加载。</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="k">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">didReceiveMemoryWarning</span> <span class="p">{</span>
+</span><span class='line'>     <span class="k">if</span> <span class="p">([</span><span class="n">self</span> <span class="n">isViewLoaded</span><span class="p">]</span> <span class="o">&amp;&amp;</span> <span class="p">[</span><span class="n">self</span><span class="p">.</span><span class="n">view</span> <span class="n">window</span><span class="p">]</span> <span class="o">==</span> <span class="nb">nil</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>          <span class="n">self</span><span class="p">.</span><span class="n">view</span> <span class="o">=</span> <span class="nb">nil</span><span class="p">;</span>
+</span><span class='line'>          <span class="n">self</span><span class="p">.</span><span class="n">otherSubView</span> <span class="o">=</span> <span class="nb">nil</span><span class="p">;</span>
+</span><span class='line'>     <span class="p">}</span>
+</span><span class='line'><span class="p">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Notification 的注册和反注册以及Delegate的设置和置空</p>
+
+<p>如果注册的通知跟界面相关，可以考虑将注册放入viewWillAppear并在viewWillDisappear中反注册。
+如果需要在视图加载时就注册，那就在viewDidLoad注册，dealloc和didReceiveMemoryWarning中根据视图是否加载过来进行反注册。
+注意viewDidUnload和viewDidLoad不是成对调用的，所以即使是iOS5或者以下的版本也不能在viewDidUnload里面反注册。参见[iOS] ViewController的生命周期及其加载View的步骤。</p>
+
+<p>综上所述，最佳实践的代码如下：</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+<span class='line-number'>31</span>
+<span class='line-number'>32</span>
+<span class='line-number'>33</span>
+<span class='line-number'>34</span>
+<span class='line-number'>35</span>
+<span class='line-number'>36</span>
+<span class='line-number'>37</span>
+<span class='line-number'>38</span>
+<span class='line-number'>39</span>
+<span class='line-number'>40</span>
+<span class='line-number'>41</span>
+<span class='line-number'>42</span>
+<span class='line-number'>43</span>
+<span class='line-number'>44</span>
+<span class='line-number'>45</span>
+<span class='line-number'>46</span>
+<span class='line-number'>47</span>
+<span class='line-number'>48</span>
+<span class='line-number'>49</span>
+<span class='line-number'>50</span>
+<span class='line-number'>51</span>
+<span class='line-number'>52</span>
+<span class='line-number'>53</span>
+<span class='line-number'>54</span>
+<span class='line-number'>55</span>
+<span class='line-number'>56</span>
+<span class='line-number'>57</span>
+<span class='line-number'>58</span>
+<span class='line-number'>59</span>
+<span class='line-number'>60</span>
+<span class='line-number'>61</span>
+<span class='line-number'>62</span>
+</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="k">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">viewDidLoad</span>
+</span><span class='line'><span class="p">{</span>
+</span><span class='line'>     <span class="n">self</span><span class="p">.</span><span class="n">subView</span><span class="p">.</span><span class="n">delegate</span> <span class="o">=</span> <span class="n">self</span><span class="p">;</span>
+</span><span class='line'>     <span class="p">[[</span><span class="n">NSNotificationCenter</span> <span class="n">defaultCenter</span><span class="p">]</span> <span class="nl">addObserver:</span><span class="n">self</span><span class="p">];</span>
+</span><span class='line'>     <span class="n">self</span><span class="p">.</span><span class="n">viewCreatedByCode</span> <span class="o">=</span> <span class="p">[[</span><span class="n">UIView</span> <span class="n">alloc</span><span class="p">]</span> <span class="n">init</span><span class="p">];</span>
+</span><span class='line'><span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'><span class="c1">// 自定义函数viewUnloaded，其操作与viewDidLoad对称。</span>
+</span><span class='line'><span class="k">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">viewUnloaded</span>
+</span><span class='line'><span class="p">{</span>
+</span><span class='line'>     <span class="n">self</span><span class="p">.</span><span class="n">subView</span><span class="p">.</span><span class="n">delegate</span> <span class="o">=</span> <span class="nb">nil</span><span class="p">;</span>
+</span><span class='line'>     <span class="p">[[</span><span class="n">NSNotificationCenter</span> <span class="n">defaultCenter</span><span class="p">]</span> <span class="nl">removeObserver:</span><span class="n">self</span><span class="p">];</span>
+</span><span class='line'>     <span class="n">self</span><span class="p">.</span><span class="n">viewCreatedByCode</span> <span class="o">=</span> <span class="nb">nil</span><span class="p">;</span>
+</span><span class='line'><span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">didReceiveMemoryWarning</span> <span class="p">{</span>
+</span><span class='line'>     <span class="k">if</span> <span class="p">([</span><span class="n">self</span> <span class="n">isViewLoaded</span><span class="p">]</span> <span class="o">&amp;&amp;</span> <span class="p">[</span><span class="n">self</span><span class="p">.</span><span class="n">view</span> <span class="n">window</span><span class="p">]</span> <span class="o">==</span> <span class="nb">nil</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>          <span class="n">self</span><span class="p">.</span><span class="n">view</span> <span class="o">=</span> <span class="nb">nil</span><span class="p">;</span> <span class="c1">// 需要开发者手动释放控制器的视图。</span>
+</span><span class='line'>          <span class="n">self</span><span class="p">.</span><span class="n">viewCreatedByNib</span> <span class="o">=</span> <span class="nb">nil</span><span class="p">;</span>  <span class="c1">// 在xib中创建的视图也要手动清空。</span>
+</span><span class='line'>          <span class="p">[</span><span class="n">self</span> <span class="n">viewUnloaded</span><span class="p">];</span> <span class="c1">// 视图已被卸载，调用viewDIdLoad的反操作。</span>
+</span><span class='line'>     <span class="p">}</span>
+</span><span class='line'><span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">dealloc</span>
+</span><span class='line'><span class="p">{</span>
+</span><span class='line'>     <span class="k">if</span> <span class="p">([</span><span class="n">self</span> <span class="n">isViewLoaded</span><span class="p">])</span> <span class="p">{</span>
+</span><span class='line'>          <span class="p">[</span><span class="n">self</span> <span class="n">viewUnloaded</span><span class="p">];</span> <span class="c1">// 如果视图已被加载，说明viewDidLoad被调用过，所以调用viewDIdLoad的反操作。</span>
+</span><span class='line'>     <span class="p">}</span>
+</span><span class='line'><span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'>
+</span><span class='line'><span class="k">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">viewDidLoad</span>
+</span><span class='line'><span class="p">{</span>
+</span><span class='line'>     <span class="n">self</span><span class="p">.</span><span class="n">subView</span><span class="p">.</span><span class="n">delegate</span> <span class="o">=</span> <span class="n">self</span><span class="p">;</span>
+</span><span class='line'>     <span class="p">[[</span><span class="n">NSNotificationCenter</span> <span class="n">defaultCenter</span><span class="p">]</span> <span class="nl">addObserver:</span><span class="n">self</span><span class="p">];</span>
+</span><span class='line'>     <span class="n">self</span><span class="p">.</span><span class="n">viewCreatedByCode</span> <span class="o">=</span> <span class="p">[[</span><span class="n">UIView</span> <span class="n">alloc</span><span class="p">]</span> <span class="n">init</span><span class="p">];</span>
+</span><span class='line'><span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">viewDidUnload</span>
+</span><span class='line'><span class="p">{</span>
+</span><span class='line'>     <span class="n">self</span><span class="p">.</span><span class="n">subView</span><span class="p">.</span><span class="n">delegate</span> <span class="o">=</span> <span class="nb">nil</span><span class="p">;</span>
+</span><span class='line'>     <span class="p">[[</span><span class="n">NSNotificationCenter</span> <span class="n">defaultCenter</span><span class="p">]</span> <span class="nl">removeObserver:</span><span class="n">self</span><span class="p">];</span>
+</span><span class='line'>     <span class="n">self</span><span class="p">.</span><span class="n">viewCreatedByCode</span> <span class="o">=</span> <span class="nb">nil</span><span class="p">;</span>
+</span><span class='line'><span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'>
+</span><span class='line'><span class="k">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">didReceiveMemoryWarning</span> <span class="p">{</span>
+</span><span class='line'>     <span class="k">if</span> <span class="p">([</span><span class="n">self</span> <span class="n">isViewLoaded</span><span class="p">]</span> <span class="o">&amp;&amp;</span> <span class="p">[</span><span class="n">self</span><span class="p">.</span><span class="n">view</span> <span class="n">window</span><span class="p">]</span> <span class="o">==</span> <span class="nb">nil</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>         <span class="p">[</span><span class="n">self</span><span class="p">.</span><span class="n">photoCache</span> <span class="n">removeAllObjects</span><span class="p">];</span>
+</span><span class='line'>         <span class="k">if</span> <span class="p">(</span><span class="o">&gt;=</span><span class="n">iOS6</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>              <span class="n">self</span><span class="p">.</span><span class="n">view</span> <span class="o">=</span> <span class="nb">nil</span><span class="p">;</span>
+</span><span class='line'>              <span class="p">[</span><span class="n">self</span> <span class="n">viewDidUnload</span><span class="p">];</span>
+</span><span class='line'>         <span class="p">}</span>
+</span><span class='line'>     <span class="p">}</span>
+</span><span class='line'><span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">dealloc</span>
+</span><span class='line'><span class="p">{</span>
+</span><span class='line'>     <span class="k">if</span> <span class="p">([</span><span class="n">self</span> <span class="n">isViewLoaded</span><span class="p">])</span> <span class="p">{</span>
+</span><span class='line'>         <span class="p">[[</span><span class="n">NSNotificationCenter</span> <span class="n">defaultCenter</span><span class="p">]</span> <span class="nl">removeObserver:</span><span class="n">self</span><span class="p">];</span>
+</span><span class='line'>     <span class="p">}</span>
+</span><span class='line'><span class="p">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p class='post-footer'>&nbsp;written by <a href='http://wison.me'>苹果君</a>&nbsp;posted at <a href='http://wison.me'>http://wison.me</a></br>&nbsp;版权声明：自由转载-非商用-非衍生-保持署名| <a href='http://creativecommons.org/licenses/by-nc-nd/3.0/deed.zh'>Creative Commons BY-NC-ND 3.0</a></p>
+
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[[iOS] ViewController的生命周期及其加载View的步骤]]></title>
+    <link href="http://wison.me/blog/2012/03/03/ios-viewcontrollerde-sheng-ming-zhou-qi-ji-qi-jia-zai-viewde-bu-zou/"/>
+    <updated>2012-03-03T12:17:08+08:00</updated>
+    <id>http://wison.me/blog/2012/03/03/ios-viewcontrollerde-sheng-ming-zhou-qi-ji-qi-jia-zai-viewde-bu-zou</id>
+    <content type="html"><![CDATA[<p>首先先阐明ViewController的职责：对内管理与之关联的View，对外跟其他ViewController通信和协调。对于与之关联的View，ViewController总是在需要的时候才加载视图，并在不需要的时候卸载视图，所以也同时担当了管理应用资源的责任。理解ViewController的LifeCycle（生命周期），能够有效地管理应用资源。</p>
+
+<!-- more -->
+
+
+<h4><strong>ViewController的初始化：</strong></h4>
+
+<p>从Storyboards中加载的时候，会调用initWithCode，如果不存在则调用init。之后对里面的每个对象调用awakeFromNib方法。
+从内存中alloc出来的情况下，调init方法。
+ViewController查找与其关联的view，其顺序是：</p>
+
+<ol>
+<li><p>先判断子类是否重写了loadView，如果有直接调用。之后调viewDidLoad完成View的加载。</p></li>
+<li><p>如果是外部通过调用initWithNibName:bundle指定nib文件名的话，ViewController记载此nib来创建View。</p></li>
+<li><p>如果initWithNibName:bundle的name参数为nil，则ViewController会通过以下两个步骤找到与其关联的nib。
+A 如果类名包含Controller，例如ViewController的类名是MyViewController，则查找是否存在MyView.nib；
+B 找跟ViewController类名一样的文件，例如MyViewController，则查找是否存在MyViewController.nib。</p></li>
+<li><p>如果子类没有重写的loadView，则ViewController会从StroyBoards中找或者调用其默认的loadView，默认的loadView返回一个空白的UIView对象。
+注意第一步，ViewController是判断子类是否重写了loadView，而不是判断调用子类的loadView之后ViewController的View是否为空。就是说，如果子类重写了loadView的话，不管子类在loadView里面能否获取到View，ViewController都会直接调viewDidLoad完成View的加载。</p></li>
+</ol>
+
+
+<h4><strong> ViewController的卸载View的步骤：</strong></h4>
+
+<ol>
+<li>系统发出内存警告或者ViewController本身调用导致didReceiveMemoryWarning被调用</li>
+<li>如果此时view没有被加入到任何视图树上，则调用viewWillUnload之后释放View</li>
+<li>调用viewDidUnload</li>
+</ol>
+
+
+<p>注意view的Load和Unload不是成对调用的。
+因为viewWillUnload和viewDidUnload这两个函数只在内存警告时被调用。
+就算强制将viewController的view设为nil也不会触发。
+如果viewController从创建到销毁期间都没有内存警告，那么这两个函数将始终不会被调用。</p>
+
+<p>更新：
+iOS6已将viewWillUnload和viewDidUnload废弃，原因是UIKit在内存警告的时候已经不会自动释放无用的视图。
+详见 viewDidUnload 和 viewWillUnload 被废弃</p>
+
+<p>注意：
+由于Controller加载View时，会自动将一些View对象指向其对应的IBOutlet变量。
+所以当view被卸载时我们必须在viewDidUnload将这些变量release掉，ViewController不会自动做这件事。
+具体做法是将变量设置为空，（注意和dealloc中将变量release的区别）注意此时Controller的view属性是空的。
+在ViewController的生命周期的各个阶段，我们都有责任去适当的创建和销毁对象，具体各个阶段要做的事情，见官方文档的表Managing Memory Efficiently</p>
+
+<p>注：本文中的ViewController即视图控制器，根类是UIViewController。View是视图，根类是UIView。<p class='post-footer'>&nbsp;written by <a href='http://wison.me'>苹果君</a>&nbsp;posted at <a href='http://wison.me'><a href="http://wison.me">http://wison.me</a></a></br>&nbsp;版权声明：自由转载-非商用-非衍生-保持署名| <a href='http://creativecommons.org/licenses/by-nc-nd/3.0/deed.zh'>Creative Commons BY-NC-ND 3.0</a></p></p>
+]]></content>
+  </entry>
+  
+</feed>

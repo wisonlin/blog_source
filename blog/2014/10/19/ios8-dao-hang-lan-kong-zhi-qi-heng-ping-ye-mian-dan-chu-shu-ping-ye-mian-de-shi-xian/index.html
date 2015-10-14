@@ -1,0 +1,305 @@
+
+<!DOCTYPE html>
+<!--[if IEMobile 7 ]><html class="no-js iem7"><![endif]-->
+<!--[if lt IE 9]><html class="no-js lte-ie8"><![endif]-->
+<!--[if (gt IE 8)|(gt IEMobile 7)|!(IEMobile)|!(IE)]><!--><html class="no-js" lang="en"><!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <title>iOS8 导航控制器横屏页面弹出竖屏页面的实现 - 苹果君的博客</title>
+  <meta name="author" content="苹果君">
+
+  
+  <meta name="description" content="我们都知道，同一个导航控制器中，我们可以做到两个不同的页面有不同的方向。
+例如一个页面支持竖屏，我们 push 一个新的页面，支持横屏。
+本文介绍了这种情况下，iOS 8 做 pop 动画的实现。 例子如下： 好，问题来了，第二个页面横屏，点击第二个页面的返回按钮，触发导航栏的 pop 逻辑， &hellip;">
+  
+
+  <!-- http://t.co/dKP3o1e -->
+  <meta name="HandheldFriendly" content="True">
+  <meta name="MobileOptimized" content="320">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  
+  <link rel="canonical" href="http://wison.me/blog/2014/10/19/ios8-dao-hang-lan-kong-zhi-qi-heng-ping-ye-mian-dan-chu-shu-ping-ye-mian-de-shi-xian">
+  <link href="/favicon.png" rel="icon">
+  <link href="/stylesheets/screen.css" media="screen, projection" rel="stylesheet" type="text/css">
+  <link href="/atom.xml" rel="alternate" title="苹果君的博客" type="application/atom+xml">
+  <script src="/javascripts/modernizr-2.0.js"></script>
+  <!--script src="//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"></script-->
+  <script src="/jquery.min.js"></script>
+  <script>!window.jQuery && document.write(unescape('%3Cscript src="./javascripts/libs/jquery.min.js"%3E%3C/script%3E'))</script>
+  <script src="/javascripts/octopress.js" type="text/javascript"></script>
+  <!--Fonts from Google"s Web font directory at http://google.com/webfonts -->
+<!--link href="//fonts.googleapis.com/css?family=PT+Serif:regular,italic,bold,bolditalic" rel="stylesheet" type="text/css"-->
+<!--link href="//fonts.googleapis.com/css?family=PT+Sans:regular,italic,bold,bolditalic" rel="stylesheet" type="text/css"-->
+
+<link href="/stylesheets/google-fonts.css" rel="stylesheet" type="text/css">
+
+  
+
+</head>
+
+<body   >
+  <header role="banner"><hgroup>
+  <h1><a href="/">苹果君的博客</a></h1>
+  
+    <h2>Happy Coding, Happy Living</h2>
+  
+</hgroup>
+
+</header>
+  <nav role="navigation"><ul class="subscription" data-subscription="rss">
+  <li><a href="/atom.xml" rel="subscribe-rss" title="subscribe via RSS">RSS</a></li>
+  
+</ul>
+  
+<form action="https://www.google.com/search" method="get">
+  <fieldset role="search">
+    <input type="hidden" name="q" value="site:wison.me" />
+    <input class="search" type="text" name="q" results="0" placeholder="Search"/>
+  </fieldset>
+</form>
+  
+<ul class="main-navigation">
+  <li><a href="/">首页</a></li>
+  <li><a href="/blog/archives">所有文章</a></li>
+  <li><a href="/about">关于</a></li>
+</ul>
+
+</nav>
+  <div id="main">
+    <div id="content">
+      <div>
+<article class="hentry" role="article">
+  
+  <header>
+    
+      <h1 class="entry-title">iOS8 导航控制器横屏页面弹出竖屏页面的实现</h1>
+    
+    
+      <p class="meta">
+        
+
+
+
+
+
+
+
+
+  
+
+
+<time datetime="2014-10-19T20:07:21+08:00" pubdate data-updated="true">Oct 19<span>th</span>, 2014</time>
+        
+		
+		   | <a href="#comments">Comments</a>
+	    
+      </p>
+    
+  </header>
+
+
+<div class="entry-content"><p>我们都知道，同一个导航控制器中，我们可以做到两个不同的页面有不同的方向。
+例如一个页面支持竖屏，我们 push 一个新的页面，支持横屏。
+本文介绍了这种情况下，iOS 8 做 pop 动画的实现。</p>
+
+<!-- more -->
+
+
+<p>例子如下：</p>
+
+<p><img src="/images/2014-10-19-1.jpg" width="320" height="568" />
+<img src="/images/2014-10-19-2.png" width="320" height="568" /></p>
+
+<p>好，问题来了，第二个页面横屏，点击第二个页面的返回按钮，触发导航栏的 pop 逻辑，此时的动画应该是怎么样的？</p>
+
+<p>iOS 8 会有这样的一个动画：</p>
+
+<p><img src="/images/2014-10-19-3.png" width="434" height="593" /></p>
+
+<p>横屏页面会原封不动的，做一个类似pop的动画，箭头为横屏页面的动画方向。
+iOS 8 为了做到这个效果，选择对导航控制器的 pop 操作动刀。具体是这么做的：
+做 pop 动作的时候，导航控制器发现当前控制器是横屏，上一个控制器是竖屏的时候。
+那么会临时 present 一个当前页面的截图，由这个截图来模拟 pop 动画，而真正的 pop 操作不包含动画。
+流程如下：</p>
+
+<p><img src="/images/2014-10-19-4.png" alt="image" /></p>
+
+<p>简而言之，iOS 8 通过截图的方式，实现了横屏到竖屏的 pop 动画。
+所以，-[UINavigationController popViewControllerAnimated:] 这个接口的实现就会复杂很多。
+此时的 pop 操作，包含了 present一个页面，dismiss一个页面，以及真正的pop操作。
+代码大概应该是这样的：</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="k">-</span> <span class="p">(</span><span class="n">UIViewController</span> <span class="o">*</span><span class="p">)</span><span class="nf">popViewControllerAnimated:</span><span class="p">(</span><span class="kt">BOOL</span><span class="p">)</span><span class="nv">animatd</span>
+</span><span class='line'><span class="p">{</span>
+</span><span class='line'>    <span class="k">if</span> <span class="p">(</span><span class="n">animated</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>        <span class="k">if</span> <span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">topController</span><span class="p">.</span><span class="n">orientation</span> <span class="o">==</span> <span class="n">landscape</span> <span class="o">&amp;&amp;</span> <span class="n">self</span><span class="p">.</span><span class="n">preViewController</span><span class="p">.</span><span class="n">orientation</span> <span class="o">==</span> <span class="n">portrait</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>            <span class="n">UISnapshotModalViewController</span> <span class="o">*</span><span class="n">snapShot</span> <span class="o">=</span> <span class="p">[[</span><span class="n">UISnapshotModalViewController</span> <span class="n">alloc</span><span class="p">]</span> <span class="nl">initWithViewController:</span><span class="n">self</span><span class="p">.</span><span class="n">topViewController</span><span class="p">];</span>
+</span><span class='line'>            <span class="p">[</span><span class="n">self</span> <span class="nl">presentViewController:</span><span class="n">snapShot</span> <span class="nl">animated:</span><span class="n">NO</span><span class="p">];</span>
+</span><span class='line'>            <span class="p">[</span><span class="n">self</span> <span class="nl">popViewControllerAnimated:</span><span class="n">NO</span><span class="p">];</span>
+</span><span class='line'>            <span class="p">[</span><span class="n">self</span> <span class="n">dismissViewControllerWithPopAnimate</span><span class="p">];</span>
+</span><span class='line'>        <span class="p">}</span>
+</span><span class='line'>        <span class="p">[</span><span class="n">self</span> <span class="n">doPopViewControllerAnimated</span><span class="p">];</span>
+</span><span class='line'>    <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+</span><span class='line'>        <span class="p">[</span><span class="n">self</span> <span class="n">doPopViewController</span><span class="p">];</span>
+</span><span class='line'>    <span class="p">}</span>
+</span><span class='line'><span class="p">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>以上，便是 iOS 8 在 横屏页面 pop 出竖屏页面的动画的实现。
+注意第七行代码，如果调用 popViewControllerAnimated 时如果传入的参数是 YES，
+那么 popViewControllerAnimated 会被调用两次！
+第一次是 popViewControllerAnimated:YES，第二次是 popViewControllerAnimated:NO 。
+重写或者替换 UINavigationController 的 popViewControllerAnimated: 时需要注意这里。</p>
+
+<p class='post-footer'>&nbsp;written by <a href='http://wison.me'>苹果君</a>&nbsp;posted at <a href='http://wison.me'>http://wison.me</a></br>&nbsp;版权声明：自由转载-非商用-非衍生-保持署名| <a href='http://creativecommons.org/licenses/by-nc-nd/3.0/deed.zh'>Creative Commons BY-NC-ND 3.0</a></p>
+
+</div>
+
+
+  <footer>
+    <p class="meta">
+      
+  
+
+<span class="byline author vcard">Posted by <span class="fn">苹果君</span></span>
+
+      
+
+
+
+
+
+
+
+
+  
+
+
+<time datetime="2014-10-19T20:07:21+08:00" pubdate data-updated="true">Oct 19<span>th</span>, 2014</time>
+      
+
+<span class="categories">
+  
+    <a class='category' href='/blog/categories/ios/'>iOS</a>
+  
+</span>
+
+
+    </p>
+    
+      <div class="sharing">
+  
+  <a href="//twitter.com/share" class="twitter-share-button" data-url="http://wison.me/blog/2014/10/19/ios8-dao-hang-lan-kong-zhi-qi-heng-ping-ye-mian-dan-chu-shu-ping-ye-mian-de-shi-xian/" data-via="" data-counturl="http://wison.me/blog/2014/10/19/ios8-dao-hang-lan-kong-zhi-qi-heng-ping-ye-mian-dan-chu-shu-ping-ye-mian-de-shi-xian/" >Tweet</a>
+  
+  
+  
+</div>
+
+    
+    <p class="meta">
+      
+        <a class="basic-alignment left" href="/blog/2014/08/10/nshashtable-yin-qi-de-xing-neng-wen-ti/" title="Previous Post: NSHashTable 引起的性能问题">&laquo; NSHashTable 引起的性能问题</a>
+      
+      
+        <a class="basic-alignment right" href="/blog/2014/10/19/ios8-zhuan-ping-bug-hui-zong/" title="Next Post: iOS8 转屏 Bug 汇总">iOS8 转屏 Bug 汇总 &raquo;</a>
+      
+    </p>
+  </footer>
+</article>
+
+
+  <section>
+    <h1>Comments</h1>
+	<div id="comments" aria-live="polite"><!-- Duoshuo Comment BEGIN -->
+<div class="ds-thread" data-title="iOS8 导航控制器横屏页面弹出竖屏页面的实现"></div>
+<script type="text/javascript">
+  var duoshuoQuery = {short_name:"wison"};
+    (function() {
+		    var ds = document.createElement('script');
+			    ds.type = 'text/javascript';ds.async = true;
+				    ds.src = 'http://static.duoshuo.com/embed.js';
+					    ds.charset = 'UTF-8';
+						    (document.getElementsByTagName('head')[0] 
+							    || document.getElementsByTagName('body')[0]).appendChild(ds);
+								  })();
+								  </script>
+								  <!-- Duoshuo Comment END -->
+</div>
+  </section>
+
+</div>
+
+<aside class="sidebar">
+  
+    <section>
+  <h1>Recent Posts</h1>
+  <ul id="recent_posts">
+    
+      <li class="post">
+        <a href="/blog/2014/10/19/ios8-zhuan-ping-bug-hui-zong/">iOS8 转屏 Bug 汇总</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2014/10/19/ios8-dao-hang-lan-kong-zhi-qi-heng-ping-ye-mian-dan-chu-shu-ping-ye-mian-de-shi-xian/">iOS8 导航控制器横屏页面弹出竖屏页面的实现</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2014/08/10/nshashtable-yin-qi-de-xing-neng-wen-ti/">NSHashTable 引起的性能问题</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2014/08/09/ios-zeng-liang-geng-xin-ji-zhi-jie-shao/">iOS 增量更新机制介绍</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2014/08/09/pan-duan-zi-ji-de-ying-yong-shi-fou-bei-diao-shi-qi-dong/">判断自己的应用是否被调试启动</a>
+      </li>
+    
+  </ul>
+</section>
+
+<section>
+    <h1>文章分类</h1>
+    <ul id="categories">
+        <li class='category'><a href='/blog/categories/ios/'>iOS (8)</a></li>
+
+    </ul>
+</section>
+  
+</aside>
+
+
+    </div>
+  </div>
+  <footer role="contentinfo"><p>
+  Copyright &copy; 2014 - 苹果君 -
+  <span class="credit">Powered by <a href="http://octopress.org">Octopress</a></span>
+  <script type="text/javascript">var cnzz_protocol = (("https:" == document.location.protocol) ? " https://" : " http://");document.write(unescape("%3Cspan id='cnzz_stat_icon_1252908829'%3E%3C/span%3E%3Cscript src='" + cnzz_protocol + "s19.cnzz.com/z_stat.php%3Fid%3D1252908829%26show%3Dpic' type='text/javascript'%3E%3C/script%3E"));</script>
+</p>
+
+</footer>
+  
+
+
+
+
+
+</body>
+</html>

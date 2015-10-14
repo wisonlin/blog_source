@@ -1,0 +1,278 @@
+
+<!DOCTYPE html>
+<!--[if IEMobile 7 ]><html class="no-js iem7"><![endif]-->
+<!--[if lt IE 9]><html class="no-js lte-ie8"><![endif]-->
+<!--[if (gt IE 8)|(gt IEMobile 7)|!(IEMobile)|!(IE)]><!--><html class="no-js" lang="en"><!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <title>[iOS] ViewController的生命周期及其加载View的步骤 - 苹果君的博客</title>
+  <meta name="author" content="苹果君">
+
+  
+  <meta name="description" content="首先先阐明ViewController的职责：对内管理与之关联的View，对外跟其他ViewController通信和协调。对于与之关联的View，ViewController总是在需要的时候才加载视图，并在不需要的时候卸载视图，所以也同时担当了管理应用资源的责任。 &hellip;">
+  
+
+  <!-- http://t.co/dKP3o1e -->
+  <meta name="HandheldFriendly" content="True">
+  <meta name="MobileOptimized" content="320">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  
+  <link rel="canonical" href="http://wison.me/blog/2012/03/03/ios-viewcontrollerde-sheng-ming-zhou-qi-ji-qi-jia-zai-viewde-bu-zou">
+  <link href="/favicon.png" rel="icon">
+  <link href="/stylesheets/screen.css" media="screen, projection" rel="stylesheet" type="text/css">
+  <link href="/atom.xml" rel="alternate" title="苹果君的博客" type="application/atom+xml">
+  <script src="/javascripts/modernizr-2.0.js"></script>
+  <!--script src="//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"></script-->
+  <script src="/jquery.min.js"></script>
+  <script>!window.jQuery && document.write(unescape('%3Cscript src="./javascripts/libs/jquery.min.js"%3E%3C/script%3E'))</script>
+  <script src="/javascripts/octopress.js" type="text/javascript"></script>
+  <!--Fonts from Google"s Web font directory at http://google.com/webfonts -->
+<!--link href="//fonts.googleapis.com/css?family=PT+Serif:regular,italic,bold,bolditalic" rel="stylesheet" type="text/css"-->
+<!--link href="//fonts.googleapis.com/css?family=PT+Sans:regular,italic,bold,bolditalic" rel="stylesheet" type="text/css"-->
+
+<link href="/stylesheets/google-fonts.css" rel="stylesheet" type="text/css">
+
+  
+
+</head>
+
+<body   >
+  <header role="banner"><hgroup>
+  <h1><a href="/">苹果君的博客</a></h1>
+  
+    <h2>Happy Coding, Happy Living</h2>
+  
+</hgroup>
+
+</header>
+  <nav role="navigation"><ul class="subscription" data-subscription="rss">
+  <li><a href="/atom.xml" rel="subscribe-rss" title="subscribe via RSS">RSS</a></li>
+  
+</ul>
+  
+<form action="https://www.google.com/search" method="get">
+  <fieldset role="search">
+    <input type="hidden" name="q" value="site:wison.me" />
+    <input class="search" type="text" name="q" results="0" placeholder="Search"/>
+  </fieldset>
+</form>
+  
+<ul class="main-navigation">
+  <li><a href="/">首页</a></li>
+  <li><a href="/blog/archives">所有文章</a></li>
+  <li><a href="/about">关于</a></li>
+</ul>
+
+</nav>
+  <div id="main">
+    <div id="content">
+      <div>
+<article class="hentry" role="article">
+  
+  <header>
+    
+      <h1 class="entry-title">[iOS] ViewController的生命周期及其加载View的步骤</h1>
+    
+    
+      <p class="meta">
+        
+
+
+
+
+
+
+
+
+  
+
+
+<time datetime="2012-03-03T12:17:08+08:00" pubdate data-updated="true">Mar 3<span>rd</span>, 2012</time>
+        
+		
+		   | <a href="#comments">Comments</a>
+	    
+      </p>
+    
+  </header>
+
+
+<div class="entry-content"><p>首先先阐明ViewController的职责：对内管理与之关联的View，对外跟其他ViewController通信和协调。对于与之关联的View，ViewController总是在需要的时候才加载视图，并在不需要的时候卸载视图，所以也同时担当了管理应用资源的责任。理解ViewController的LifeCycle（生命周期），能够有效地管理应用资源。</p>
+
+<!-- more -->
+
+
+<h4><strong>ViewController的初始化：</strong></h4>
+
+<p>从Storyboards中加载的时候，会调用initWithCode，如果不存在则调用init。之后对里面的每个对象调用awakeFromNib方法。
+从内存中alloc出来的情况下，调init方法。
+ViewController查找与其关联的view，其顺序是：</p>
+
+<ol>
+<li><p>先判断子类是否重写了loadView，如果有直接调用。之后调viewDidLoad完成View的加载。</p></li>
+<li><p>如果是外部通过调用initWithNibName:bundle指定nib文件名的话，ViewController记载此nib来创建View。</p></li>
+<li><p>如果initWithNibName:bundle的name参数为nil，则ViewController会通过以下两个步骤找到与其关联的nib。
+A 如果类名包含Controller，例如ViewController的类名是MyViewController，则查找是否存在MyView.nib；
+B 找跟ViewController类名一样的文件，例如MyViewController，则查找是否存在MyViewController.nib。</p></li>
+<li><p>如果子类没有重写的loadView，则ViewController会从StroyBoards中找或者调用其默认的loadView，默认的loadView返回一个空白的UIView对象。
+注意第一步，ViewController是判断子类是否重写了loadView，而不是判断调用子类的loadView之后ViewController的View是否为空。就是说，如果子类重写了loadView的话，不管子类在loadView里面能否获取到View，ViewController都会直接调viewDidLoad完成View的加载。</p></li>
+</ol>
+
+
+<h4><strong> ViewController的卸载View的步骤：</strong></h4>
+
+<ol>
+<li>系统发出内存警告或者ViewController本身调用导致didReceiveMemoryWarning被调用</li>
+<li>如果此时view没有被加入到任何视图树上，则调用viewWillUnload之后释放View</li>
+<li>调用viewDidUnload</li>
+</ol>
+
+
+<p>注意view的Load和Unload不是成对调用的。
+因为viewWillUnload和viewDidUnload这两个函数只在内存警告时被调用。
+就算强制将viewController的view设为nil也不会触发。
+如果viewController从创建到销毁期间都没有内存警告，那么这两个函数将始终不会被调用。</p>
+
+<p>更新：
+iOS6已将viewWillUnload和viewDidUnload废弃，原因是UIKit在内存警告的时候已经不会自动释放无用的视图。
+详见 viewDidUnload 和 viewWillUnload 被废弃</p>
+
+<p>注意：
+由于Controller加载View时，会自动将一些View对象指向其对应的IBOutlet变量。
+所以当view被卸载时我们必须在viewDidUnload将这些变量release掉，ViewController不会自动做这件事。
+具体做法是将变量设置为空，（注意和dealloc中将变量release的区别）注意此时Controller的view属性是空的。
+在ViewController的生命周期的各个阶段，我们都有责任去适当的创建和销毁对象，具体各个阶段要做的事情，见官方文档的表Managing Memory Efficiently</p>
+
+<p>注：本文中的ViewController即视图控制器，根类是UIViewController。View是视图，根类是UIView。<p class='post-footer'>&nbsp;written by <a href='http://wison.me'>苹果君</a>&nbsp;posted at <a href='http://wison.me'><a href="http://wison.me">http://wison.me</a></a></br>&nbsp;版权声明：自由转载-非商用-非衍生-保持署名| <a href='http://creativecommons.org/licenses/by-nc-nd/3.0/deed.zh'>Creative Commons BY-NC-ND 3.0</a></p></p>
+</div>
+
+
+  <footer>
+    <p class="meta">
+      
+  
+
+<span class="byline author vcard">Posted by <span class="fn">苹果君</span></span>
+
+      
+
+
+
+
+
+
+
+
+  
+
+
+<time datetime="2012-03-03T12:17:08+08:00" pubdate data-updated="true">Mar 3<span>rd</span>, 2012</time>
+      
+
+<span class="categories">
+  
+    <a class='category' href='/blog/categories/ios/'>iOS</a>
+  
+</span>
+
+
+    </p>
+    
+      <div class="sharing">
+  
+  <a href="//twitter.com/share" class="twitter-share-button" data-url="http://wison.me/blog/2012/03/03/ios-viewcontrollerde-sheng-ming-zhou-qi-ji-qi-jia-zai-viewde-bu-zou/" data-via="" data-counturl="http://wison.me/blog/2012/03/03/ios-viewcontrollerde-sheng-ming-zhou-qi-ji-qi-jia-zai-viewde-bu-zou/" >Tweet</a>
+  
+  
+  
+</div>
+
+    
+    <p class="meta">
+      
+      
+        <a class="basic-alignment right" href="/blog/2013/04/07/viewdidunload-he-viewwillunload-bei-fei-qi-zhi-hou-de-nei-cun-jing-gao-chu-li/" title="Next Post: viewDidUnload 和 viewWillUnload 被废弃之后的内存警告处理">viewDidUnload 和 viewWillUnload 被废弃之后的内存警告处理 &raquo;</a>
+      
+    </p>
+  </footer>
+</article>
+
+
+  <section>
+    <h1>Comments</h1>
+	<div id="comments" aria-live="polite"><!-- Duoshuo Comment BEGIN -->
+<div class="ds-thread" data-title="[iOS] ViewController的生命周期及其加载View的步骤"></div>
+<script type="text/javascript">
+  var duoshuoQuery = {short_name:"wison"};
+    (function() {
+		    var ds = document.createElement('script');
+			    ds.type = 'text/javascript';ds.async = true;
+				    ds.src = 'http://static.duoshuo.com/embed.js';
+					    ds.charset = 'UTF-8';
+						    (document.getElementsByTagName('head')[0] 
+							    || document.getElementsByTagName('body')[0]).appendChild(ds);
+								  })();
+								  </script>
+								  <!-- Duoshuo Comment END -->
+</div>
+  </section>
+
+</div>
+
+<aside class="sidebar">
+  
+    <section>
+  <h1>Recent Posts</h1>
+  <ul id="recent_posts">
+    
+      <li class="post">
+        <a href="/blog/2014/10/19/ios8-zhuan-ping-bug-hui-zong/">iOS8 转屏 Bug 汇总</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2014/10/19/ios8-dao-hang-lan-kong-zhi-qi-heng-ping-ye-mian-dan-chu-shu-ping-ye-mian-de-shi-xian/">iOS8 导航控制器横屏页面弹出竖屏页面的实现</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2014/08/10/nshashtable-yin-qi-de-xing-neng-wen-ti/">NSHashTable 引起的性能问题</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2014/08/09/ios-zeng-liang-geng-xin-ji-zhi-jie-shao/">iOS 增量更新机制介绍</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2014/08/09/pan-duan-zi-ji-de-ying-yong-shi-fou-bei-diao-shi-qi-dong/">判断自己的应用是否被调试启动</a>
+      </li>
+    
+  </ul>
+</section>
+
+<section>
+    <h1>文章分类</h1>
+    <ul id="categories">
+        <li class='category'><a href='/blog/categories/ios/'>iOS (8)</a></li>
+
+    </ul>
+</section>
+  
+</aside>
+
+
+    </div>
+  </div>
+  <footer role="contentinfo"><p>
+  Copyright &copy; 2014 - 苹果君 -
+  <span class="credit">Powered by <a href="http://octopress.org">Octopress</a></span>
+  <script type="text/javascript">var cnzz_protocol = (("https:" == document.location.protocol) ? " https://" : " http://");document.write(unescape("%3Cspan id='cnzz_stat_icon_1252908829'%3E%3C/span%3E%3Cscript src='" + cnzz_protocol + "s19.cnzz.com/z_stat.php%3Fid%3D1252908829%26show%3Dpic' type='text/javascript'%3E%3C/script%3E"));</script>
+</p>
+
+</footer>
+  
+
+
+
+
+
+</body>
+</html>

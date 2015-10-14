@@ -1,0 +1,329 @@
+
+<!DOCTYPE html>
+<!--[if IEMobile 7 ]><html class="no-js iem7"><![endif]-->
+<!--[if lt IE 9]><html class="no-js lte-ie8"><![endif]-->
+<!--[if (gt IE 8)|(gt IEMobile 7)|!(IEMobile)|!(IE)]><!--><html class="no-js" lang="en"><!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <title>判断自己的应用是否被调试启动 - 苹果君的博客</title>
+  <meta name="author" content="苹果君">
+
+  
+  <meta name="description" content="转自：https://developer.apple.com/library/ios/qa/qa1361/_index.html#//apple_ref/doc/uid/DTS10003368 目前能够想到的两个用处： 加入一些开发调试过程中才运行的代码，方便开发。
+可以检测到被恶意调起， &hellip;">
+  
+
+  <!-- http://t.co/dKP3o1e -->
+  <meta name="HandheldFriendly" content="True">
+  <meta name="MobileOptimized" content="320">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  
+  <link rel="canonical" href="http://wison.me/blog/2014/08/09/pan-duan-zi-ji-de-ying-yong-shi-fou-bei-diao-shi-qi-dong">
+  <link href="/favicon.png" rel="icon">
+  <link href="/stylesheets/screen.css" media="screen, projection" rel="stylesheet" type="text/css">
+  <link href="/atom.xml" rel="alternate" title="苹果君的博客" type="application/atom+xml">
+  <script src="/javascripts/modernizr-2.0.js"></script>
+  <!--script src="//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"></script-->
+  <script src="/jquery.min.js"></script>
+  <script>!window.jQuery && document.write(unescape('%3Cscript src="./javascripts/libs/jquery.min.js"%3E%3C/script%3E'))</script>
+  <script src="/javascripts/octopress.js" type="text/javascript"></script>
+  <!--Fonts from Google"s Web font directory at http://google.com/webfonts -->
+<!--link href="//fonts.googleapis.com/css?family=PT+Serif:regular,italic,bold,bolditalic" rel="stylesheet" type="text/css"-->
+<!--link href="//fonts.googleapis.com/css?family=PT+Sans:regular,italic,bold,bolditalic" rel="stylesheet" type="text/css"-->
+
+<link href="/stylesheets/google-fonts.css" rel="stylesheet" type="text/css">
+
+  
+
+</head>
+
+<body   >
+  <header role="banner"><hgroup>
+  <h1><a href="/">苹果君的博客</a></h1>
+  
+    <h2>Happy Coding, Happy Living</h2>
+  
+</hgroup>
+
+</header>
+  <nav role="navigation"><ul class="subscription" data-subscription="rss">
+  <li><a href="/atom.xml" rel="subscribe-rss" title="subscribe via RSS">RSS</a></li>
+  
+</ul>
+  
+<form action="https://www.google.com/search" method="get">
+  <fieldset role="search">
+    <input type="hidden" name="q" value="site:wison.me" />
+    <input class="search" type="text" name="q" results="0" placeholder="Search"/>
+  </fieldset>
+</form>
+  
+<ul class="main-navigation">
+  <li><a href="/">首页</a></li>
+  <li><a href="/blog/archives">所有文章</a></li>
+  <li><a href="/about">关于</a></li>
+</ul>
+
+</nav>
+  <div id="main">
+    <div id="content">
+      <div>
+<article class="hentry" role="article">
+  
+  <header>
+    
+      <h1 class="entry-title">判断自己的应用是否被调试启动</h1>
+    
+    
+      <p class="meta">
+        
+
+
+
+
+
+
+
+
+  
+
+
+<time datetime="2014-08-09T14:41:33+08:00" pubdate data-updated="true">Aug 9<span>th</span>, 2014</time>
+        
+		
+		   | <a href="#comments">Comments</a>
+	    
+      </p>
+    
+  </header>
+
+
+<div class="entry-content"><p>转自：<a href="https://developer.apple.com/library/ios/qa/qa1361/_index.html#//apple_ref/doc/uid/DTS10003368">https://developer.apple.com/library/ios/qa/qa1361/_index.html#//apple_ref/doc/uid/DTS10003368</a></p>
+
+<p>目前能够想到的两个用处：</p>
+
+<ol>
+<li>加入一些开发调试过程中才运行的代码，方便开发。</li>
+<li>可以检测到被恶意调起，终止敏感操作。</li>
+</ol>
+
+
+<!-- more -->
+
+
+
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+<span class='line-number'>31</span>
+<span class='line-number'>32</span>
+<span class='line-number'>33</span>
+<span class='line-number'>34</span>
+<span class='line-number'>35</span>
+<span class='line-number'>36</span>
+<span class='line-number'>37</span>
+<span class='line-number'>38</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>#include &lt;assert.h&gt;
+</span><span class='line'>#include &lt;stdbool.h&gt;
+</span><span class='line'>#include &lt;sys/types.h&gt;
+</span><span class='line'>#include &lt;unistd.h&gt;
+</span><span class='line'>#include &lt;sys/sysctl.h&gt;
+</span><span class='line'>
+</span><span class='line'>static bool AmIBeingDebugged(void)
+</span><span class='line'>    // Returns true if the current process is being debugged (either 
+</span><span class='line'>    // running under the debugger or has a debugger attached post facto).
+</span><span class='line'>{
+</span><span class='line'>    int                 junk;
+</span><span class='line'>    int                 mib[4];
+</span><span class='line'>    struct kinfo_proc   info;
+</span><span class='line'>    size_t              size;
+</span><span class='line'>
+</span><span class='line'>    // Initialize the flags so that, if sysctl fails for some bizarre 
+</span><span class='line'>    // reason, we get a predictable result.
+</span><span class='line'>
+</span><span class='line'>    info.kp_proc.p_flag = 0;
+</span><span class='line'>
+</span><span class='line'>    // Initialize mib, which tells sysctl the info we want, in this case
+</span><span class='line'>    // we're looking for information about a specific process ID.
+</span><span class='line'>
+</span><span class='line'>    mib[0] = CTL_KERN;
+</span><span class='line'>    mib[1] = KERN_PROC;
+</span><span class='line'>    mib[2] = KERN_PROC_PID;
+</span><span class='line'>    mib[3] = getpid();
+</span><span class='line'>
+</span><span class='line'>    // Call sysctl.
+</span><span class='line'>
+</span><span class='line'>    size = sizeof(info);
+</span><span class='line'>    junk = sysctl(mib, sizeof(mib) / sizeof(*mib), &info, &size, NULL, 0);
+</span><span class='line'>    assert(junk == 0);
+</span><span class='line'>
+</span><span class='line'>    // We're being debugged if the P_TRACED flag is set.
+</span><span class='line'>
+</span><span class='line'>    return ( (info.kp_proc.p_flag & P_TRACED) != 0 );
+</span><span class='line'>}</span></code></pre></td></tr></table></div></figure>
+
+
+<p class='post-footer'>&nbsp;written by <a href='http://wison.me'>苹果君</a>&nbsp;posted at <a href='http://wison.me'>http://wison.me</a></br>&nbsp;版权声明：自由转载-非商用-非衍生-保持署名| <a href='http://creativecommons.org/licenses/by-nc-nd/3.0/deed.zh'>Creative Commons BY-NC-ND 3.0</a></p>
+
+</div>
+
+
+  <footer>
+    <p class="meta">
+      
+  
+
+<span class="byline author vcard">Posted by <span class="fn">苹果君</span></span>
+
+      
+
+
+
+
+
+
+
+
+  
+
+
+<time datetime="2014-08-09T14:41:33+08:00" pubdate data-updated="true">Aug 9<span>th</span>, 2014</time>
+      
+
+<span class="categories">
+  
+    <a class='category' href='/blog/categories/ios/'>iOS</a>
+  
+</span>
+
+
+    </p>
+    
+      <div class="sharing">
+  
+  <a href="//twitter.com/share" class="twitter-share-button" data-url="http://wison.me/blog/2014/08/09/pan-duan-zi-ji-de-ying-yong-shi-fou-bei-diao-shi-qi-dong/" data-via="" data-counturl="http://wison.me/blog/2014/08/09/pan-duan-zi-ji-de-ying-yong-shi-fou-bei-diao-shi-qi-dong/" >Tweet</a>
+  
+  
+  
+</div>
+
+    
+    <p class="meta">
+      
+        <a class="basic-alignment left" href="/blog/2014/06/01/cant-add-self-as-subview/" title="Previous Post: Can't add self as subview">&laquo; Can't add self as subview</a>
+      
+      
+        <a class="basic-alignment right" href="/blog/2014/08/09/ios-zeng-liang-geng-xin-ji-zhi-jie-shao/" title="Next Post: iOS 增量更新机制介绍">iOS 增量更新机制介绍 &raquo;</a>
+      
+    </p>
+  </footer>
+</article>
+
+
+  <section>
+    <h1>Comments</h1>
+	<div id="comments" aria-live="polite"><!-- Duoshuo Comment BEGIN -->
+<div class="ds-thread" data-title="判断自己的应用是否被调试启动"></div>
+<script type="text/javascript">
+  var duoshuoQuery = {short_name:"wison"};
+    (function() {
+		    var ds = document.createElement('script');
+			    ds.type = 'text/javascript';ds.async = true;
+				    ds.src = 'http://static.duoshuo.com/embed.js';
+					    ds.charset = 'UTF-8';
+						    (document.getElementsByTagName('head')[0] 
+							    || document.getElementsByTagName('body')[0]).appendChild(ds);
+								  })();
+								  </script>
+								  <!-- Duoshuo Comment END -->
+</div>
+  </section>
+
+</div>
+
+<aside class="sidebar">
+  
+    <section>
+  <h1>Recent Posts</h1>
+  <ul id="recent_posts">
+    
+      <li class="post">
+        <a href="/blog/2014/10/19/ios8-zhuan-ping-bug-hui-zong/">iOS8 转屏 Bug 汇总</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2014/10/19/ios8-dao-hang-lan-kong-zhi-qi-heng-ping-ye-mian-dan-chu-shu-ping-ye-mian-de-shi-xian/">iOS8 导航控制器横屏页面弹出竖屏页面的实现</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2014/08/10/nshashtable-yin-qi-de-xing-neng-wen-ti/">NSHashTable 引起的性能问题</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2014/08/09/ios-zeng-liang-geng-xin-ji-zhi-jie-shao/">iOS 增量更新机制介绍</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2014/08/09/pan-duan-zi-ji-de-ying-yong-shi-fou-bei-diao-shi-qi-dong/">判断自己的应用是否被调试启动</a>
+      </li>
+    
+  </ul>
+</section>
+
+<section>
+    <h1>文章分类</h1>
+    <ul id="categories">
+        <li class='category'><a href='/blog/categories/ios/'>iOS (8)</a></li>
+
+    </ul>
+</section>
+  
+</aside>
+
+
+    </div>
+  </div>
+  <footer role="contentinfo"><p>
+  Copyright &copy; 2014 - 苹果君 -
+  <span class="credit">Powered by <a href="http://octopress.org">Octopress</a></span>
+  <script type="text/javascript">var cnzz_protocol = (("https:" == document.location.protocol) ? " https://" : " http://");document.write(unescape("%3Cspan id='cnzz_stat_icon_1252908829'%3E%3C/span%3E%3Cscript src='" + cnzz_protocol + "s19.cnzz.com/z_stat.php%3Fid%3D1252908829%26show%3Dpic' type='text/javascript'%3E%3C/script%3E"));</script>
+</p>
+
+</footer>
+  
+
+
+
+
+
+</body>
+</html>
